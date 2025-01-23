@@ -1,9 +1,4 @@
-class ASHomsePlayerCharacter : AHomsePlayerCharacter
+class ASHomsePlayerCharacter : AHomseCharacterBase
 {
 
-    UFUNCTION(BlueprintOverride)
-    void BeginPlay()
-    {
-        Print("Hello World!");
-    }
 }

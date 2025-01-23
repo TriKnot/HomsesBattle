@@ -1,9 +1,6 @@
 ﻿#pragma once
-
-
 #include "CoreMinimal.h"
 #include "AIController.h"
-#include "AI/EAIState.h"
 #include "HomseEnemyControllerBase.generated.h"
 
 UCLASS()
