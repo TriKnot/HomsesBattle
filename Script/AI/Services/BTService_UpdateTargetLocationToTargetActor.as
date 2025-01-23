@@ -38,7 +38,6 @@ class UBTService_UpdateTargetLocationToTargetActor : UBTService_BlueprintBase
         FVector QueryExtent = FVector(250.0f, 250.0f, 3500.0f);
 
         UNavigationSystemV1::ProjectPointToNavigation(TargetLocation, NavLocation, NadData, nullptr, QueryExtent);
-        System::DrawDebugSphere(NavLocation, 50.0f, 12, FLinearColor::Green, 5, 10.0f);
 
         BlackboardComp.SetValueAsVector(TargetLocationKey.SelectedKeyName, NavLocation);
     }
