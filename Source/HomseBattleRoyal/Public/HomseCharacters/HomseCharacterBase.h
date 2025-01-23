@@ -12,7 +12,6 @@ class AHomseCharacterBase : public ACharacter
 	GENERATED_BODY()
 	
 public:
-
 	UFUNCTION(BlueprintCallable)
 	void SetMovementSpeed(EMovementSpeed Speed);
 
@@ -26,4 +25,7 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float SprintSpeed = 900.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	bool bIsJumping = false;
 };

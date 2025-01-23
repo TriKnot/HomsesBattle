@@ -2,7 +2,6 @@
 
 #include "GameFramework/CharacterMovementComponent.h"
 
-
 void AHomseCharacterBase::SetMovementSpeed(EMovementSpeed Speed)
 {
 	switch (Speed)
