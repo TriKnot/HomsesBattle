@@ -21,6 +21,9 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     EAIState StartingState = EAIState::EAIState_Patrol;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+    AActor TargetActor;
+
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
@@ -117,6 +120,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
 
     void SetTargetActor(AActor Actor)
     {
+        TargetActor = Actor;
         Blackboard.SetValueAsObject(TargetActorKeyName, Actor);
     }
 

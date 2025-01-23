@@ -43,11 +43,7 @@ class UBTTask_FindPatrolTargetLocation : UBTTask_BlueprintBase
             return;
         }
 
-        // Get Random Location from the array
-        FVector RandomLocation = Locations[Math::RandRange(0, Locations.Num() - 1)];
-
-        BlackboardComp.SetValueAsVector(PatrolTargetLocationKey.SelectedKeyName, RandomLocation);
-
+        BlackboardComp.SetValueAsVector(PatrolTargetLocationKey.SelectedKeyName, Locations[0]);
         FinishExecute(true);
     }
 
