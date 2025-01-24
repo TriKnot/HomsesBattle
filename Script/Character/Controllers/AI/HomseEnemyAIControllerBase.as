@@ -77,7 +77,18 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
                 continue;
 
             AISensesReport::AddStimulus(SenseReport, SenseInfo, Info.Target, SenseInfo.StimulusLocation);
-            bCanSenseActor = true;
+
+            if(SenseReport.bSightUsed)
+            {
+                if(HasLineOfSight(Actor))
+                {
+                    bCanSenseActor = true;
+                }
+            }
+            else
+            {
+                bCanSenseActor = true;
+            }
         }
 
 
@@ -153,6 +164,24 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
     EAIState GetState()
     {
         return EAIState(Blackboard.GetValueAsEnum(StateKeyName));
+    }
+
+    bool HasLineOfSight(const AActor Actor)
+    {
+        if (Actor == nullptr)
+            return false;
+
+        FHitResult HitResult;
+        FCollisionQueryParams CollisionParams;
+        APawn Pawn = GetControlledPawn();
+        CollisionParams.AddIgnoredActor(Pawn);
+        FVector StartLocation = Pawn.GetActorLocation();
+        FVector EndLocation = Actor.GetActorLocation();
+        TArray<AActor> ActorsToIgnore;
+        ActorsToIgnore.Add(Pawn);
+        System::LineTraceSingleByProfile(StartLocation, EndLocation, n"Visibility", false, ActorsToIgnore, EDrawDebugTrace::None, HitResult, true);
+
+        return !HitResult.bBlockingHit || HitResult.GetActor() == Actor;
     }
 
 }
