@@ -7,7 +7,6 @@ class UBTTask_FindPatrolTargetLocation : UBTTask_BlueprintBase
     UEnvQuery EnvQuery;
 
     UBlackboardComponent BlackboardComp;
-    int QueryID;
 
     UFUNCTION(BlueprintOverride)
     void ExecuteAI(AAIController OwnerController, APawn ControlledPawn)
