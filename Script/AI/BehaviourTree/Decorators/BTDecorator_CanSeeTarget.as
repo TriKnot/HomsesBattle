@@ -23,9 +23,6 @@ class UBTDecorator_CanSeeTarget : UBTDecorator_BlueprintBase
         if (!IsValid(AIController) || !IsValid(PerceptionComponent))
             return false;
 
-        FVector ControlledPawnLocation = ControlledPawn.GetActorLocation();
-
-
         FActorPerceptionBlueprintInfo Info;
         PerceptionComponent.GetActorsPerception(TargetActor, Info);
 
