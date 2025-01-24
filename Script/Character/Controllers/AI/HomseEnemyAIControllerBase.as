@@ -16,6 +16,12 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
 	FName PointOfInterestKeyName;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackboard|Keys")
+    FName AttackRangeKeyName;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackboard|Keys")
+    FName DefenceRangeKeyName;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackboard|Keys")
     FName StateKeyName;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
@@ -24,11 +30,21 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     AActor TargetActor;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+    float AttackRange = 100.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+    float DefenceRange = 500.0f;
+
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         AIPerceptionComponent.OnPerceptionUpdated.AddUFunction(this, n"OnPerceptionUpdated");
+
+        Blackboard.SetValueAsFloat(AttackRangeKeyName, AttackRange);
+        Blackboard.SetValueAsFloat(DefenceRangeKeyName, DefenceRange);
+
         SetState(StartingState);
     }
 
@@ -51,6 +67,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         }
     }
 
+    UFUNCTION()
     bool CanSenseActor(const AActor Actor, const FActorPerceptionBlueprintInfo Info, FAISensesReport& SenseReport)
     {
         bool bCanSenseActor = false;
@@ -87,8 +104,6 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         if (Actor == nullptr)
             return;
 
-        ClearTargetActor();
-
         EAIState CurrentState = GetState();
 
         if(CurrentState == EAIState::EAIState_Chasing)
@@ -97,7 +112,6 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
             return;
         }   
 
-        //SetState(EAIState::EAIState_Patrol);
     }
 
     void HandleSensedSight(AActor Actor, FAISensesReport& SenseReport)
@@ -126,6 +140,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
 
     void ClearTargetActor()
     {
+        TargetActor = nullptr;
         Blackboard.ClearValue(TargetActorKeyName);
     }
 
