@@ -6,5 +6,4 @@ class UBTTask_ClearFocus : UBTTask_BlueprintBase
         OwnerController.ClearFocus();
         FinishExecute(true);            
     }
-
 }

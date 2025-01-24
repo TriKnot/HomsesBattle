@@ -4,7 +4,7 @@ class UBTTask_MoveToTargetActor : UBTTask_BlueprintBase
     FBlackboardKeySelector TargetActorKey;
 
     UPROPERTY(EditAnywhere)
-    float AcceptanceRadius = 50.0f;
+    FBlackboardKeySelector AcceptanceRadiusKey;
 
     UFUNCTION(BlueprintOverride)
     void ExecuteAI(AAIController OwnerController, APawn ControlledPawn)
@@ -24,9 +24,10 @@ class UBTTask_MoveToTargetActor : UBTTask_BlueprintBase
             FinishExecute(false);
             return;
         }
+
+        float AcceptanceRadius = BlackboardComp.GetValueAsFloat(AcceptanceRadiusKey.SelectedKeyName);
         
-        EPathFollowingRequestResult requestResult = 
-        OwnerController.MoveToActor(TargetActor, AcceptanceRadius, true, true, false);
+        EPathFollowingRequestResult requestResult = OwnerController.MoveToActor(TargetActor, AcceptanceRadius, true, true, false);
 
         if (requestResult == EPathFollowingRequestResult::Failed)
         {
