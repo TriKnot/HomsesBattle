@@ -18,7 +18,7 @@ class ASHomseEnemyBase : AHomseCharacterBase
     UFUNCTION()
     void Attack()
     {
-        Print("Enemy attacks!");
+        Print("BOOP!");
     }
 
 
