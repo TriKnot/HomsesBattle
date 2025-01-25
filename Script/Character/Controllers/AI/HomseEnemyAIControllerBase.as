@@ -61,7 +61,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
             }
             else
             {
-                OnNoActorSensed(Actor);
+                OnActorNotSensed(Actor);
             }
 
         }
