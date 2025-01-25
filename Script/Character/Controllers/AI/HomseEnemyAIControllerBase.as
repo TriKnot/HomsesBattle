@@ -110,7 +110,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         }
     }
 
-    void OnNoActorSensed(AActor Actor)
+    void OnActorNotSensed(AActor Actor)
     {
         if (Actor == nullptr)
             return;
