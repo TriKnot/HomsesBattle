@@ -6,31 +6,39 @@ class UBTTask_MoveToTargetActor : UBTTask_BlueprintBase
     UPROPERTY(EditAnywhere)
     FBlackboardKeySelector AcceptanceRadiusKey;
 
+    AAIController Controller;
+
     UFUNCTION(BlueprintOverride)
     void ExecuteAI(AAIController OwnerController, APawn ControlledPawn)
     {
+
         UBlackboardComponent BlackboardComp = OwnerController.Blackboard;
 
         if (!IsValid(BlackboardComp))
         {
+            PrintError("No Blackboard | BTTask_MoveToTargetActor->ExecuteAI");
             FinishExecute(false);
             return;
         }
 
-        auto TargetActor = Cast<AActor>(BlackboardComp.GetValueAsObject(TargetActorKey.SelectedKeyName));
+        AActor TargetActor = Cast<AActor>(BlackboardComp.GetValueAsObject(TargetActorKey.SelectedKeyName));
 
         if (!IsValid(TargetActor))
         {
+            PrintError("No TargetActor | BTTask_MoveToTargetActor->ExecuteAI");
             FinishExecute(false);
             return;
         }
 
+        Controller = OwnerController;
+
         float AcceptanceRadius = BlackboardComp.GetValueAsFloat(AcceptanceRadiusKey.SelectedKeyName);
         
-        EPathFollowingRequestResult requestResult = OwnerController.MoveToActor(TargetActor, AcceptanceRadius, true, true, false);
+        EPathFollowingRequestResult requestResult = Controller.MoveToActor(TargetActor, AcceptanceRadius, true, true, false);
 
         if (requestResult == EPathFollowingRequestResult::Failed)
         {
+            PrintError("MoveToTargetActor request failed | BTTask_MoveToTargetActor->ExecuteAI");
             FinishExecute(false);
             return;
         }
@@ -40,24 +48,30 @@ class UBTTask_MoveToTargetActor : UBTTask_BlueprintBase
             FinishExecute(true);
             return;
         }
-            
+        
+        Controller.ReceiveMoveCompleted.AddUFunction(this, n"OnMoveCompleted");
     }
 
-    UFUNCTION(BlueprintOverride)
-	void TickAI(AAIController OwnerController, APawn ControlledPawn, float DeltaSeconds)
+    UFUNCTION()
+    void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult Result)
     {
-        if (OwnerController.GetMoveStatus() == EPathFollowingStatus::Idle)
+        Controller.ReceiveMoveCompleted.Clear();
+        if (Result == EPathFollowingResult::Success)
         {
             FinishExecute(true);
+        }
+        else
+        {
+            FinishExecute(false);
         }
     }
 
 	UFUNCTION(BlueprintOverride)
 	void AbortAI(AAIController OwnerController, APawn ControlledPawn)
     {
+        OwnerController.ReceiveMoveCompleted.Clear();
         OwnerController.StopMovement();
-
-        FinishExecute(false);
+        FinishAbort();
     }
 
 }

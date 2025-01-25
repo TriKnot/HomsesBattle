@@ -6,6 +6,8 @@ class UBTTask_MoveToTargetLocation : UBTTask_BlueprintBase
     UPROPERTY(EditAnywhere)
     float AcceptanceRadius = 100.0f;
 
+    AAIController Controller;
+
     UFUNCTION(BlueprintOverride)
     void ExecuteAI(AAIController OwnerController, APawn ControlledPawn)
     {
@@ -13,6 +15,7 @@ class UBTTask_MoveToTargetLocation : UBTTask_BlueprintBase
 
         if (!IsValid(BlackboardComp))
         {
+            PrintError("No Blackboard | BTTask_MoveToTargetLocation->ExecuteAI");
             FinishExecute(false);
             return;
         }
@@ -24,6 +27,7 @@ class UBTTask_MoveToTargetLocation : UBTTask_BlueprintBase
         
         if (requestResult == EPathFollowingRequestResult::Failed)
         {
+            PrintError("MoveToTargetLocation request failed | BTTask_MoveToTargetLocation->ExecuteAI");
             FinishExecute(false);
             return;
         }
@@ -33,24 +37,32 @@ class UBTTask_MoveToTargetLocation : UBTTask_BlueprintBase
             FinishExecute(true);
             return;
         }
+
+        Controller = OwnerController;
             
+        OwnerController.ReceiveMoveCompleted.AddUFunction(this, n"OnMoveCompleted");
     }
 
-    UFUNCTION(BlueprintOverride)
-	void TickAI(AAIController OwnerController, APawn ControlledPawn, float DeltaSeconds)
+    UFUNCTION()
+    void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult Result)
     {
-        if (OwnerController.GetMoveStatus() == EPathFollowingStatus::Idle)
+        Controller.ReceiveMoveCompleted.Clear();
+        if (Result == EPathFollowingResult::Success)
         {
             FinishExecute(true);
+        }
+        else
+        {
+            FinishExecute(false);
         }
     }
 
 	UFUNCTION(BlueprintOverride)
 	void AbortAI(AAIController OwnerController, APawn ControlledPawn)
     {
+        OwnerController.ReceiveMoveCompleted.Clear();
         OwnerController.StopMovement();
-
-        FinishExecute(false);
+        FinishAbort();
     }
 
 }
