@@ -71,14 +71,6 @@ class UBTTask_FindCoverLocation : UBTTask_BlueprintBase
         FinishExecute(true);
     }
 
-    float DistanceToTargetSquared(FVector TargetLocation, FVector ControlledPawnLocation)
-	{
-		return 
-		(TargetLocation.X-ControlledPawnLocation.X)*(TargetLocation.X-ControlledPawnLocation.X) 
-		+ (TargetLocation.Y-ControlledPawnLocation.Y)*(TargetLocation.Y-ControlledPawnLocation.Y) 
-		+ (TargetLocation.Z-ControlledPawnLocation.Z)*(TargetLocation.Z-ControlledPawnLocation.Z);
-	}
-
     void SortLocationsByDistance(TArray<FVector> &inout Locations, const FVector &in PawnLocation)
     {
         if(Locations.Num() < 2)
@@ -113,16 +105,10 @@ class UBTTask_FindCoverLocation : UBTTask_BlueprintBase
         FVector PathDirection = (Path.PathPoints[1] - Path.PathPoints[0]).GetSafeNormal();
         FVector TargetDirection = (TargetLocation - ActorLocation).GetSafeNormal();
 
-        float DotProduct = Dot(PathDirection, TargetDirection);
+        float DotProduct = PathDirection.DotProduct(TargetDirection);
 
         return DotProduct > 0.7f; 
     }
-
-    float Dot(const FVector &in A, const FVector &in B)
-    {
-        return A.X * B.X + A.Y * B.Y + A.Z * B.Z;
-    }
-
 
     
 }

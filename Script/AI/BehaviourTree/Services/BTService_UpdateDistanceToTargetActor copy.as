@@ -26,14 +26,6 @@ class UBTService_UpdateDistanceToTargetActor : UBTService_BlueprintBase
 		SetDistanceToTargetActor(ControlledPawn);
 	}
 
-	float DistanceToTargetSquared(FVector TargetLocation, FVector ControlledPawnLocation)
-	{
-		return 
-		(TargetLocation.X-ControlledPawnLocation.X)*(TargetLocation.X-ControlledPawnLocation.X) 
-		+ (TargetLocation.Y-ControlledPawnLocation.Y)*(TargetLocation.Y-ControlledPawnLocation.Y) 
-		+ (TargetLocation.Z-ControlledPawnLocation.Z)*(TargetLocation.Z-ControlledPawnLocation.Z);
-	}
-
 	void SetDistanceToTargetActor(APawn ControlledPawn)
 	{
 		if(!IsValid(TargetActor))
@@ -42,8 +34,7 @@ class UBTService_UpdateDistanceToTargetActor : UBTService_BlueprintBase
 		FVector ControlledPawnLocation = ControlledPawn.GetActorLocation();
 		FVector TargetLocation = TargetActor.GetActorLocation();
 
-		float DistanceToTarget = DistanceToTargetSquared(TargetLocation, ControlledPawnLocation);
-		DistanceToTarget = Math::Sqrt(DistanceToTarget);
+		float DistanceToTarget = TargetLocation.Distance(ControlledPawnLocation);
 
 		BlackboardComp.SetValueAsFloat(DistanceToTargetActorKey.SelectedKeyName, DistanceToTarget);
 	}
