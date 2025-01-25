@@ -14,6 +14,7 @@ class UBTTask_FindPatrolTargetLocation : UBTTask_BlueprintBase
         BlackboardComp = OwnerController.Blackboard;
         if(!IsValid(BlackboardComp))
         {
+            PrintError("No Blackboard | BTTask_FindPatrolTargetLocation->ExecuteAI");
             FinishExecute(false);
             return;
         }
@@ -22,7 +23,7 @@ class UBTTask_FindPatrolTargetLocation : UBTTask_BlueprintBase
 
         if (Result == nullptr)
         {
-            PrintError("No EQS Result");
+            PrintError("No EQS Result | BTTask_FindPatrolTargetLocation->ExecuteAI");
             FinishExecute(false);
             return;
         }
@@ -37,7 +38,7 @@ class UBTTask_FindPatrolTargetLocation : UBTTask_BlueprintBase
 
         if (!QueryInstance.GetQueryResultsAsLocations(Locations) && Locations.Num() > 0)
         {
-            PrintError("No Results found");
+            PrintError("No Results found | BTTask_FindPatrolTargetLocation->OnQueryFinished");
             FinishExecute(false);
             return;
         }
