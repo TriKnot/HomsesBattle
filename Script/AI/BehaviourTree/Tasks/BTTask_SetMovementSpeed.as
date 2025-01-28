@@ -13,8 +13,15 @@ class UBTTask_SetMovementSpeedAS : UBTTask_BlueprintBase
             return;
         }
 
-        Character.SetMovementSpeed(TargetMovementSpeed);
+        UHomseMovementComponent MovementComponent = Character.HomseMovementComponent;
 
+        if (!IsValid(MovementComponent))
+        {
+            FinishExecute(false);
+            return;
+        }
+
+        MovementComponent.SetMovementSpeed(TargetMovementSpeed);
 
         FinishExecute(true);            
     }
