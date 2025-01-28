@@ -1,0 +1,39 @@
+class U${TM_FILENAME_BASE} : UCapability
+{$0
+    UFUNCTION(BlueprintOverride)
+    void Setup()
+    {
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void Teardown()
+    {
+    }
+
+    UFUNCTION(BlueprintOverride)
+    bool ShouldActivate()
+    {
+        return true;
+    }
+
+    UFUNCTION(BlueprintOverride)
+    bool ShouldDeactivate()
+    {
+        return false;
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void OnActivate()
+    {
+    }
+    
+    UFUNCTION(BlueprintOverride)
+    void OnDeactivate()
+    {
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void TickActive(float DeltaTime)
+    {
+    }
+};
