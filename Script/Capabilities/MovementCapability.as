@@ -17,36 +17,24 @@ class UMovementCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return !MoveComp.bIsBlocked;
+        return !MoveComp.bIsBlocked && !CapabilityComp.MovementInput.IsNearlyZero();
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return MoveComp.bIsBlocked;
+        return MoveComp.bIsBlocked || CapabilityComp.MovementInput.IsNearlyZero();
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
-    {
-        float X = 0.0f;
-        float Y = 0.0f;
-
-        if(CapabilityComp.GetActionStatus(InputActions::MovementDown))
-            Y -= 1.0f;
-        if(CapabilityComp.GetActionStatus(InputActions::MovementUp))
-            Y += 1.0f;
-
-        if(CapabilityComp.GetActionStatus(InputActions::MovementLeft))
-            X -= 1.0f;
-        if(CapabilityComp.GetActionStatus(InputActions::MovementRight))
-            X += 1.0f;
-        
+    {      
         FRotator ControlRotation = HomseOwner.GetControlRotation();
         FVector Forward = ControlRotation.GetForwardVector();
         FVector Right = ControlRotation.GetRightVector();
+        FVector2D MovementInput = CapabilityComp.MovementInput;
 
-        MoveComp.AddMovementInput(Forward, Y, false);
-        MoveComp.AddMovementInput(Right, X, false);
+        MoveComp.AddMovementInput(Forward, MovementInput.Y, false);
+        MoveComp.AddMovementInput(Right, MovementInput.X, false);
     }
 };
