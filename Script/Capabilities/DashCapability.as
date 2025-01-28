@@ -4,7 +4,7 @@ class UDashCapability : UCapability
     UHomseMovementComponent MoveComp;
     UCapabilityComponent CapabilityComp;
 
-    float Duration = 2.2f;
+    float Duration = 0.2f;
     float DashLength = 1000.0f;
     FVector DashVelocity;
     float DashTimer = 0.0f;
