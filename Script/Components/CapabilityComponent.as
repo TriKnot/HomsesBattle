@@ -28,6 +28,22 @@ class UCapabilityComponent : UActorComponent
         return MouseInputDelta;
     }
 
+    FVector2D GetMovementInput() property
+    {
+        FVector2D MoveInput = FVector2D::ZeroVector;
+        if(GetActionStatus(InputActions::MovementDown))
+            MoveInput.Y -= 1.0f;
+        if(GetActionStatus(InputActions::MovementUp))
+            MoveInput.Y += 1.0f;
+
+        if(GetActionStatus(InputActions::MovementLeft))
+            MoveInput.X -= 1.0f;
+        if(GetActionStatus(InputActions::MovementRight))
+            MoveInput.X += 1.0f;
+
+        return MoveInput.GetSafeNormal();
+    }
+
     UCapability GetCapability(TSubclassOf<UCapability> CapabilityType)
     {
         for(UCapability& Capability : Capabilities)
