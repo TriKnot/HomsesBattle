@@ -1,8 +1,5 @@
 class ASHomseEnemyBase : AHomseCharacterBase
 {
-    UPROPERTY(DefaultComponent)
-    UAIPerceptionComponent AIPerceptionComponent;
-
     UPROPERTY()
     ASHomseEnemyAIControllerBase AIController;
 
