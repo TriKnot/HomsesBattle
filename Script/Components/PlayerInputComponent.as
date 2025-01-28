@@ -10,14 +10,20 @@ class UPlayerInputComponent : ULockableComponent
         PlayerController = inController;
         CapabilityComponent = PlayerController.ControlledPawnRef.CapabilityComponent;
 
-
+        // Bind movement keys
         BindKey(InputActions::MovementUp, EKeys::W);
         BindKey(InputActions::MovementDown, EKeys::S);
         BindKey(InputActions::MovementRight, EKeys::D);
         BindKey(InputActions::MovementLeft, EKeys::A);
         
+        // Bind action keys
         BindKey(InputActions::Jump, EKeys::SpaceBar);
         BindKey(InputActions::Dash, EKeys::LeftControl);
+
+        // Bind mouse axis
+        PlayerController.InputComponent.BindAxis(n"Yaw", FInputAxisHandlerDynamicSignature(this, n"OnMouseX"));
+        PlayerController.InputComponent.BindAxis(n"Pitch", FInputAxisHandlerDynamicSignature(this, n"OnMouseY"));
+
     }
 
     private void BindKey(FName Action, FKey Key)
@@ -65,6 +71,18 @@ class UPlayerInputComponent : ULockableComponent
     bool GetKeyDown(FName Action)
     {
         return CapabilityComponent.Actions.FindOrAdd(Action);
+    }
+
+    UFUNCTION()
+    private void OnMouseX(float32 Value)
+    {
+        CapabilityComponent.MouseInputDelta.X = Value; 
+    }
+
+    UFUNCTION()
+    private void OnMouseY(float32 Value)
+    {
+        CapabilityComponent.MouseInputDelta.Y = Value; 
     }
 
 }

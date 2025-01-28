@@ -8,6 +8,9 @@ class UCapabilityComponent : UActorComponent
 
     access ActionProtection = protected, UPlayerInputComponent;
     access:ActionProtection TMap<FName, bool> Actions;
+    
+    access MouseDeltaProtection = protected, UPlayerInputComponent;
+    access:MouseDeltaProtection FVector2D MouseInputDelta;
 
     TArray<TSubclassOf<UCapability>> AddCapabiliyQueue;
     TArray<TSubclassOf<UCapability>> RemoveCapabilityQueue;
@@ -18,6 +21,11 @@ class UCapabilityComponent : UActorComponent
     bool GetActionStatus(FName Action) property
     {
         return Actions.FindOrAdd(Action);
+    }
+
+    FVector2D GetMouseDelta() property
+    {
+        return MouseInputDelta;
     }
 
     UCapability GetCapability(TSubclassOf<UCapability> CapabilityType)

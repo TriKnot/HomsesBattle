@@ -1,20 +1,17 @@
 class UMovementCapability : UCapability
 {
     default Priority = ECapabilityPriority::Movement; 
+
+    AHomseCharacterBase HomseOwner;
     UHomseMovementComponent MoveComp;
     UCapabilityComponent CapabilityComp;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
-        AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
+        HomseOwner = Cast<AHomseCharacterBase>(Owner);
         MoveComp = HomseOwner.HomseMovementComponent;
         CapabilityComp = HomseOwner.CapabilityComponent;
-    }
-
-    UFUNCTION(BlueprintOverride)
-    void Teardown()
-    {
     }
 
     UFUNCTION(BlueprintOverride)
@@ -32,17 +29,24 @@ class UMovementCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        FVector MovementInput = FVector::ZeroVector;
+        float X = 0.0f;
+        float Y = 0.0f;
+
         if(CapabilityComp.GetActionStatus(InputActions::MovementDown))
-            MovementInput.Y -= 1.0f;
-        if(CapabilityComp.GetActionStatus(InputActions::MovementLeft))
-            MovementInput.X -= 1.0f;
-        if(CapabilityComp.GetActionStatus(InputActions::MovementRight))
-            MovementInput.X += 1.0f;
+            Y -= 1.0f;
         if(CapabilityComp.GetActionStatus(InputActions::MovementUp))
-            MovementInput.Y += 1.0f;
+            Y += 1.0f;
+
+        if(CapabilityComp.GetActionStatus(InputActions::MovementLeft))
+            X -= 1.0f;
+        if(CapabilityComp.GetActionStatus(InputActions::MovementRight))
+            X += 1.0f;
         
-        Print("MovementInput: " + MovementInput.ToString());
-        //MoveComp.AddMovementInput(MovementInput, 1, false);
+        FRotator ControlRotation = HomseOwner.GetControlRotation();
+        FVector Forward = ControlRotation.GetForwardVector();
+        FVector Right = ControlRotation.GetRightVector();
+
+        MoveComp.AddMovementInput(Forward, Y, false);
+        MoveComp.AddMovementInput(Right, X, false);
     }
 };
