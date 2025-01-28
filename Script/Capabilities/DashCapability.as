@@ -3,6 +3,7 @@ class UDashCapability : UCapability
     default Priority = ECapabilityPriority::PreMovement;
     UHomseMovementComponent MoveComp;
     UCapabilityComponent CapabilityComp;
+    AHomseCharacterBase HomseOwner;
 
     float Duration = 0.2f;
     float DashLength = 1000.0f;
@@ -15,7 +16,7 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
-        AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
+        HomseOwner = Cast<AHomseCharacterBase>(Owner);
         MoveComp = HomseOwner.HomseMovementComponent;
         CapabilityComp = HomseOwner.CapabilityComponent;
     }
@@ -29,7 +30,7 @@ class UDashCapability : UCapability
         if(MoveComp.bIsBlocked)
             return false;
 
-        if(MoveComp.GetVelocity().Size() < KINDA_SMALL_NUMBER)
+        if(CapabilityComp.MovementInput.IsNearlyZero())
             return false;
 
         return  true;
@@ -45,8 +46,10 @@ class UDashCapability : UCapability
     void OnActivate()
     {
         DashTimer = 0.0f;
-        DashVelocity = MoveComp.Velocity.GetSafeNormal() * (DashLength / Duration);
-        DashVelocity.Z = 0.0f;
+        FVector2D MoveInput = CapabilityComp.MovementInput;
+        FRotator ControllerRotator = HomseOwner.GetControlRotation();
+
+        DashVelocity = FVector(ControllerRotator.GetForwardVector() * MoveInput.Y + ControllerRotator.GetRightVector() * MoveInput.X) * (DashLength / Duration);
         InitialVelocity = MoveComp.Velocity;
         MoveComp.Lock();
     }
