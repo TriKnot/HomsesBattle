@@ -9,6 +9,7 @@ class ASHomseEnemyBase : AHomseCharacterBase
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
+        Super::BeginPlay();
         AIController = Cast<ASHomseEnemyAIControllerBase>(GetController());
     }
 
