@@ -1,7 +1,7 @@
 class ASHomsePlayerCharacter : AHomseCharacterBase
 {
     UPROPERTY(DefaultComponent)
-    UPlayerInputComponent Input;
+    UPlayerInputComponent InputComponent;
 
     default CapabilityComponent.CapabilitiesTypes.Add(UDashCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UUnlockComponentCapability::StaticClass());
