@@ -10,10 +10,13 @@ class UHomseMovementComponent : ULockableComponent
     float SprintSpeed = 900.0f;
 
     UPROPERTY()
-    UCharacterMovementComponent CharacterMovement;
+    float JumpForce = 650.0f;
 
     UPROPERTY()
-    bool bMovementLocked = false;
+    bool bIsJumping = false;
+
+    UPROPERTY()
+    UCharacterMovementComponent CharacterMovement;
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
@@ -44,7 +47,7 @@ class UHomseMovementComponent : ULockableComponent
     UFUNCTION(BlueprintCallable)
     void AddMovementInput(FVector WorldDirection, float ScaleValue, bool bForce)
     {
-        if(bMovementLocked)
+        if(bIsBlocked)
         {
             return;
         }
@@ -62,5 +65,18 @@ class UHomseMovementComponent : ULockableComponent
     {
         return CharacterMovement.Velocity;
     }
+
+    UFUNCTION(BlueprintCallable)
+    void SetMovementMode(EMovementMode NewMovementMode)
+    {
+        CharacterMovement.MovementMode = NewMovementMode;
+    }
+
+    UFUNCTION(BlueprintCallable)
+    bool GetIsGrounded() property
+    {
+        return CharacterMovement.IsMovingOnGround();
+    }
+
 
 }
