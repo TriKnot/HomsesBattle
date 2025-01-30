@@ -9,8 +9,10 @@ class UDashCapability : UCapability
     float DashLength = 1000.0f;
     FVector DashVelocity;
     float DashTimer = 0.0f;
+    float DashCooldown = 1.0f;
 
     FVector InitialVelocity;
+    double LastDashTime = 0.0;
 
 
     UFUNCTION(BlueprintOverride)
@@ -24,6 +26,9 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
+        if(GetWorld().TimeSeconds - LastDashTime < DashCooldown + Duration)
+            return false;
+
         if(!CapabilityComp.GetActionStatus(InputActions::Dash))
             return false;
         
@@ -52,6 +57,7 @@ class UDashCapability : UCapability
         DashVelocity = FVector(ControllerRotator.GetForwardVector() * MoveInput.Y + ControllerRotator.GetRightVector() * MoveInput.X) * (DashLength / Duration);
         InitialVelocity = MoveComp.Velocity;
         MoveComp.Lock();
+        LastDashTime = GetWorld().TimeSeconds;
     }
     
     UFUNCTION(BlueprintOverride)
