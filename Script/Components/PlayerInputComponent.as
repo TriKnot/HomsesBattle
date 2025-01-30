@@ -18,7 +18,7 @@ class UPlayerInputComponent : ULockableComponent
         
         // Bind action keys
         BindKey(InputActions::Jump, EKeys::SpaceBar);
-        BindKey(InputActions::Dash, EKeys::LeftControl);
+        BindKey(InputActions::Dash, EKeys::LeftShift);
 
         // Bind mouse axis
         PlayerController.InputComponent.BindAxis(n"Yaw", FInputAxisHandlerDynamicSignature(this, n"OnMouseX"));
