@@ -36,6 +36,9 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     float DefenceRange = 500.0f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Senses")
+    FVector EyeHeightOffset = FVector(0.0f, 0.0f, 45.0f);
+
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
@@ -166,22 +169,88 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         return EAIState(Blackboard.GetValueAsEnum(StateKeyName));
     }
 
-    bool HasLineOfSight(const AActor Actor)
+    bool HasLineOfSight(const AActor Target)
     {
-        if (Actor == nullptr)
+        if (Target == nullptr)
+            return false;
+        
+        APawn Pawn = GetControlledPawn();
+        if (Pawn == nullptr)
             return false;
 
-        FHitResult HitResult;
-        FCollisionQueryParams CollisionParams;
-        APawn Pawn = GetControlledPawn();
-        CollisionParams.AddIgnoredActor(Pawn);
-        FVector StartLocation = Pawn.GetActorLocation();
-        FVector EndLocation = Actor.GetActorLocation();
+        // Get Target's center and extent.
+        FVector TargetCenter, TargetExtent;
+        Target.GetActorBounds(true, TargetCenter, TargetExtent);
+        float TargetWidth  = TargetExtent.X * 2.0f;  // full width
+        float TargetHeight = TargetExtent.Z * 2.0f;  // full height
+
+        // Get Pawn's location and direction to target.
+        FVector PawnLocation = Pawn.GetActorLocation();
+        FVector DirToTarget = (TargetCenter - PawnLocation).GetSafeNormal();
+        
+        // Set Target point behind the target.
+        const float OffsetDistance = 250.0f; // adjust as needed
+        FVector BasePoint = TargetCenter + DirToTarget * OffsetDistance;
+        
+        // Find up and right directions relative to the target.
+        FVector UpDir = FVector(0, 0, 1);
+        FVector RightDir = DirToTarget.CrossProduct(UpDir).GetSafeNormal();
+        UpDir = RightDir.CrossProduct(DirToTarget).GetSafeNormal();
+        
+        // Set up the line trace parameters
+        const int GridResultion = 5;  
         TArray<AActor> ActorsToIgnore;
         ActorsToIgnore.Add(Pawn);
-        System::LineTraceSingleByProfile(StartLocation, EndLocation, n"Visibility", false, ActorsToIgnore, EDrawDebugTrace::None, HitResult, true);
-
-        return !HitResult.bBlockingHit || HitResult.GetActor() == Actor;
+        
+        // Loop over rows and columns and line to sample points in a grid.
+        for (int32 row = 0; row < GridResultion; ++row)
+        {
+            // Calculate the height of the row.
+            float RowHeight = 1.0f - (2.0f * row / (GridResultion - 1));
+            
+            for (int32 col = 0; col < GridResultion; ++col)
+            {
+                // Calculate the width of the column.
+                float ColumnWidth = -1.0f + (2.0f * col / (GridResultion - 1));
+                
+                // Calculate the sample point.
+                FVector SamplePoint = BasePoint 
+                                    + RightDir * (ColumnWidth * TargetWidth * 0.5f)
+                                    + UpDir    * (RowHeight * TargetHeight * 0.5f);
+                
+                FHitResult HitResult;
+                System::LineTraceSingleByProfile(
+                    PawnLocation + EyeHeightOffset,
+                    SamplePoint,
+                    n"Visibility",
+                    false,
+                    ActorsToIgnore,
+                    EDrawDebugTrace::ForDuration, 
+                    HitResult,
+                    true,
+                    FLinearColor::Red,
+                    FLinearColor::Green,
+                    10.0f
+                );
+                
+                // If we hit the target, we have line of sight.
+                if (HitResult.bBlockingHit && HitResult.GetActor() == Target)
+                {
+                    System::DrawDebugBox(
+                        TargetCenter,
+                        TargetExtent,
+                        FLinearColor::Green,
+                        FRotator::ZeroRotator,
+                        10.0f,
+                        3.0f
+                    );
+                    return true; // Exit early if we hit the target.
+                }
+            }
+        }
+        
+        return false; // No line of sight.
     }
+
 
 }
