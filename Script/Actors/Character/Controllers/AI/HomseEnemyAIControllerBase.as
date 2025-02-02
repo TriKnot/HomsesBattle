@@ -225,7 +225,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
                     n"Visibility",
                     false,
                     ActorsToIgnore,
-                    EDrawDebugTrace::ForDuration, 
+                    EDrawDebugTrace::None, 
                     HitResult,
                     true,
                     FLinearColor::Red,
@@ -236,14 +236,14 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
                 // If we hit the target, we have line of sight.
                 if (HitResult.bBlockingHit && HitResult.GetActor() == Target)
                 {
-                    System::DrawDebugBox(
-                        TargetCenter,
-                        TargetExtent,
-                        FLinearColor::Green,
-                        FRotator::ZeroRotator,
-                        10.0f,
-                        3.0f
-                    );
+                    // System::DrawDebugBox(
+                    //     TargetCenter,
+                    //     TargetExtent,
+                    //     FLinearColor::Green,
+                    //     FRotator::ZeroRotator,
+                    //     10.0f,
+                    //     3.0f
+                    // );
                     return true; // Exit early if we hit the target.
                 }
             }
