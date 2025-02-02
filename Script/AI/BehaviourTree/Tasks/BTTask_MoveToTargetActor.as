@@ -38,9 +38,13 @@ class UBTTask_MoveToTargetActor : UBTTask_BlueprintBase
 
         if (requestResult == EPathFollowingRequestResult::Failed)
         {
-            PrintError("MoveToTargetActor request failed | BTTask_MoveToTargetActor->ExecuteAI");
-            FinishExecute(false);
-            return;
+            Controller.MoveToActor(TargetActor, AcceptanceRadius, true, false, false);
+            if(requestResult == EPathFollowingRequestResult::Failed)
+            {            
+                PrintError("MoveToTargetActor request failed | BTTask_MoveToTargetActor->ExecuteAI");
+                FinishExecute(false);
+                return;
+            }
         }
         
         if (requestResult == EPathFollowingRequestResult::AlreadyAtGoal)

@@ -27,9 +27,13 @@ class UBTTask_MoveToTargetLocation : UBTTask_BlueprintBase
         
         if (requestResult == EPathFollowingRequestResult::Failed)
         {
-            PrintError("MoveToTargetLocation request failed | BTTask_MoveToTargetLocation->ExecuteAI");
-            FinishExecute(false);
-            return;
+            requestResult = OwnerController.MoveToLocation(TargetLocation, AcceptanceRadius, true, false, false);
+            if(requestResult == EPathFollowingRequestResult::Failed)
+            {
+                PrintError("MoveToTargetLocation request failed | BTTask_MoveToTargetLocation->ExecuteAI");
+                FinishExecute(false);
+                return;
+            }
         }
         
         if (requestResult == EPathFollowingRequestResult::AlreadyAtGoal)
