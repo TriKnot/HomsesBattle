@@ -7,6 +7,9 @@ class AHomseCharacterBase : ACharacter
     UCapabilityComponent CapabilityComponent;
 
     UPROPERTY(DefaultComponent)
+    UHealthComponent HealthComponent;
+
+    UPROPERTY(DefaultComponent)
     private UHomseMovementComponent Movement;
 
     default CapsuleComponent.SimulatePhysics = true;
@@ -16,7 +19,6 @@ class AHomseCharacterBase : ACharacter
     default CapsuleComponent.SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Ignore);
     default CapsuleComponent.SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
-    //default SnoutCapsuleComponent.SimulatePhysics = true;
     default SnoutCapsuleComponent.CollisionProfileName = n"Custom";
     default SnoutCapsuleComponent.CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
     default SnoutCapsuleComponent.CollisionEnabled = ECollisionEnabled::QueryAndPhysics;
@@ -28,13 +30,8 @@ class AHomseCharacterBase : ACharacter
     default SnoutCapsuleComponent.CapsuleRadius = 22.0f;
     default SnoutCapsuleComponent.CapsuleHalfHeight = 85.0f;
 
-
-    UFUNCTION(BlueprintOverride)
-    void BeginPlay()
-    {
-        CapsuleComponent.SimulatePhysics = false;
-        //SnoutCapsuleComponent.SimulatePhysics = false;
-    }
+    default CapabilityComponent.CapabilitiesTypes.Add(UDamageHandlerCapability::StaticClass());
+    default CapabilityComponent.CapabilitiesTypes.Add(UDeathCapability::StaticClass());
 
     UFUNCTION(BlueprintPure)
     UHomseMovementComponent GetHomseMovementComponent() property
@@ -44,5 +41,11 @@ class AHomseCharacterBase : ACharacter
 
     UPROPERTY()
     bool bIsJumping = false;
+
+    UFUNCTION(BlueprintOverride)
+    void BeginPlay()
+    {
+        CapsuleComponent.SimulatePhysics = false;
+    }
 
 }

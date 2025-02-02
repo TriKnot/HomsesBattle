@@ -61,6 +61,12 @@ class UHomseMovementComponent : ULockableComponent
     }
 
     UFUNCTION(BlueprintCallable)
+    void AddVelocity(FVector AddVelocity)
+    {
+        CharacterMovement.Velocity += AddVelocity;
+    }
+
+    UFUNCTION(BlueprintCallable)
     FVector GetVelocity() property
     {
         return CharacterMovement.Velocity;
