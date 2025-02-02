@@ -77,3 +77,6 @@ DerivedDataCache/*
 .idea/
 TacticalRogueLite/Script/Binds.Cache
 TacticalRogueLite/Script/Binds.Cache.Headers
+
+# Ignore starter Context
+/Content/StarterContent/*
