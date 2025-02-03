@@ -25,6 +25,7 @@ class UPlayerInputComponent : ULockableComponent
         BindKey(InputActions::Dash, EKeys::LeftShift);
         BindKey(InputActions::Test, EKeys::LeftAlt);
         BindKey(InputActions::PrimaryAttack, EKeys::LeftMouseButton);
+        BindKey(InputActions::SecondaryAttack, EKeys::RightMouseButton);
 
     }
 

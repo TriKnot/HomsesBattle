@@ -12,6 +12,9 @@ class AHomseCharacterBase : ACharacter
     UPROPERTY(DefaultComponent)
     private UHomseMovementComponent Movement;
 
+    UPROPERTY(DefaultComponent)
+    URangedAttackComponent RangedAttackComponent;
+
     default CapsuleComponent.SimulatePhysics = true;
     default CapsuleComponent.CollisionProfileName = n"Custom";
     default CapsuleComponent.CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
@@ -32,6 +35,7 @@ class AHomseCharacterBase : ACharacter
 
     default CapabilityComponent.CapabilitiesTypes.Add(UDamageHandlerCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UDeathCapability::StaticClass());
+    default CapabilityComponent.CapabilitiesTypes.Add(URangedAttackCapability::StaticClass());
 
     UFUNCTION(BlueprintPure)
     UHomseMovementComponent GetHomseMovementComponent() property
