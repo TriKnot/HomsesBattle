@@ -1,6 +1,6 @@
 class UMeleeAttackCapability : UCapability
 {
-    default Priority = ECapabilityPriority::PostMovement;
+    default Priority = ECapabilityPriority::PostInput;
 
     UHitSphereComponent HitBox;
     UHomseMovementComponent MoveComp;
