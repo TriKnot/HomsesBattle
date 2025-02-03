@@ -36,6 +36,7 @@ class AHomseCharacterBase : ACharacter
     default CapabilityComponent.CapabilitiesTypes.Add(UDamageHandlerCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UDeathCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(URangedAttackCapability::StaticClass());
+    default CapabilityComponent.CapabilitiesTypes.Add(UTrajectoryVisualizationCapability::StaticClass());
 
     UFUNCTION(BlueprintPure)
     UHomseMovementComponent GetHomseMovementComponent() property

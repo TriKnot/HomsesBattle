@@ -1,19 +1,32 @@
 class URangedAttackComponent : UActorComponent
 {
     UPROPERTY()
-    TSubclassOf<AProjectileActorBase> ProjectileClass;
-
-    UPROPERTY()
-    UMaterialInstance SimulatedProjectileTrajectoryMaterial;
+    UProjectileData ProjectileData;
 
     UPROPERTY()
     FVector ProjectileSpawnOffset = FVector(150.0f, 0.0f, -25.0f);
 
-    UPROPERTY()
-    USplineComponent SimulatedProjectileTrajectorySpline;
+    // Trajectory visualization
+    UPROPERTY(Category = "Trajectory")
+    UStaticMesh TrajectoryMesh;
 
-    UPROPERTY()
-    USplineMeshComponent SimulatedProjectileTrajectoryMesh;
+    UPROPERTY(Category = "Trajectory")
+    UMaterialInstance TrajectoryMaterial;
 
-    float Gravity = 9810.0f;
+    USplineComponent TrajectorySpline;
+
+    TArray<USplineMeshComponent> SplineMeshes;
+
+    bool bIsCharging = false;
+    FVector ProjectilSpawnLocation;
+    FVector InitialVelocity;
+
+
+    FVector CalculateSpawnLocation()
+    {
+        return Owner.GetActorLocation() 
+            + Owner.GetActorForwardVector() * ProjectileSpawnOffset.X
+            + Owner.GetActorRightVector() * ProjectileSpawnOffset.Y
+            + Owner.GetActorUpVector() * ProjectileSpawnOffset.Z;
+    }
 };
