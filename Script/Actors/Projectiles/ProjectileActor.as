@@ -1,59 +1,37 @@
-class AProjectileActorBase : AActor
+class AProjectileActor : AActor
 {
     UPROPERTY(DefaultComponent, RootComponent)
     UStaticMeshComponent Root;
 
-    UPROPERTY(Category = "Projectile Settings")
-    float InitialVelocityMultiplier = 1500.0f;
-
-    UPROPERTY(Category = "Projectile Settings")
-    float MaxVelocityMultiplier = 3000.0f;
-
-    UPROPERTY(Category = "Projectile Settings")
-    float MaxChargeTime = 1.0f;
-
-    UPROPERTY(Category = "Projectile Settings")
-    float CooldownTime = 1.0f;
-
-    UPROPERTY(Category = "Projectile Settings")
-    bool AutoFireAtMaxCharge = false;
-
-    UPROPERTY(Category = "Projectile Settings")
-    float GravityEffectMultiplier = 1.0f;
-
-    UPROPERTY(Category = "Projectile Settings")
-    float InitialZAngleMultiplier = 1.0;
-
-    UPROPERTY(Category = "Projectile Settings")
-    float DamageAmount = 10.0f;
-
-    UPROPERTY(Category = "Projectile Settings")
-    bool DisplaySimulatedTrajectory = false;
-
-    UPROPERTY(Category = "Projectile Settings")
-    UStaticMesh TrajectoryMesh;
+    UProjectileData Data;
+    FVector ProjectileVelocity;
+    AActor SourceActor;
+    TArray<AActor> IgnoredActors;
 
     default Root.SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     default Root.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
     default Root.SetGenerateOverlapEvents(true);
 
-    const float Gravity = 9810.0f;
-    FVector ProjectileVelocity;
-    TArray<AActor> IgnoredActors;
-    AActor ActorSource;
-
     UFUNCTION(BlueprintEvent)
-    void Init(AActor SourceActor, FVector InitialVelocity, TArray<AActor> ActorsToIgnore)
+    void Init(AActor Source, FVector InitialVelocity, TArray<AActor> ActorsToIgnore, UProjectileData ProjectileData)
     {
+        SourceActor = Source;
         ProjectileVelocity = InitialVelocity;
         IgnoredActors = ActorsToIgnore;
-        ActorSource = SourceActor;
+        Data = ProjectileData;
+        Root.SetStaticMesh(Data.ProjectileMesh);
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void Tick(float DeltaSeconds)
+    {
+        Move(DeltaSeconds);
     }
 
     UFUNCTION(BlueprintEvent)
     void Move(float DeltaSeconds) 
     {
-        ProjectileVelocity.Z -= Gravity * GravityEffectMultiplier * DeltaSeconds;
+        ProjectileVelocity.Z -= PhysicStatics::Gravity * Data.GravityEffectMultiplier * DeltaSeconds;
         FVector NewLocation = ActorLocation + (ProjectileVelocity * DeltaSeconds);
 
         // Basic movement for non-tracking projectiles
@@ -78,11 +56,6 @@ class AProjectileActorBase : AActor
         DestroyActor();
     };
 
-    UFUNCTION(BlueprintOverride)
-    void Tick(float DeltaSeconds)
-    {
-        Move(DeltaSeconds);
-    }
 
     void TryDealDamage(AActor HitActor)
     {
@@ -90,9 +63,9 @@ class AProjectileActorBase : AActor
         if(HealthComp != nullptr)
         {
             FDamageInstanceData DamageInstance;
-            DamageInstance.DamageAmount = DamageAmount;
+            DamageInstance.DamageAmount = Data.Damage;
             DamageInstance.DamageDirection = ProjectileVelocity.GetSafeNormal();
-            DamageInstance.SourceActor = ActorSource;
+            DamageInstance.SourceActor = SourceActor;
             DamageInstance.DamageLocation = GetActorLocation();
             HealthComp.DamageInstances.Add(DamageInstance);
         }
