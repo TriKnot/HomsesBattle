@@ -4,6 +4,8 @@ class URangedAttackCapability : UCapability
 
     UCapabilityComponent CapComp;
     URangedAttackComponent RangedAttackComp;
+    USplineComponent Spline;
+    TArray<USplineMeshComponent> SplineMeshes;
 
     float ChargeTime = 0.0f;
     float CooldownTimer = 0.0f;
@@ -19,12 +21,34 @@ class URangedAttackCapability : UCapability
         AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
         CapComp = HomseOwner.CapabilityComponent;
         RangedAttackComp = HomseOwner.RangedAttackComponent;
+
+        if(IsValid(RangedAttackComp.ProjectileClass)
+            && RangedAttackComp.ProjectileClass.GetDefaultObject().DisplaySimulatedTrajectory
+            && RangedAttackComp.SimulatedProjectileTrajectorySpline == nullptr)
+        {
+            RangedAttackComp.SimulatedProjectileTrajectorySpline = USplineComponent::Create(Owner);
+            Spline = RangedAttackComp.SimulatedProjectileTrajectorySpline;
+            Spline.AttachToComponent(Owner.RootComponent);
+            Spline.SetMobility(EComponentMobility::Movable);
+            Spline.SetSimulatePhysics(false);
+            Spline.SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        }
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void Teardown()
+    {
+        Super::Teardown();
+        if(IsValid(RangedAttackComp.SimulatedProjectileTrajectorySpline))
+        {
+            RangedAttackComp.SimulatedProjectileTrajectorySpline.DestroyComponent(RangedAttackComp.SimulatedProjectileTrajectorySpline);
+        }
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return CapComp.GetActionStatus(InputActions::SecondaryAttack); 
+        return IsValid(RangedAttackComp.ProjectileClass) && CapComp.GetActionStatus(InputActions::SecondaryAttack); 
     }
 
     UFUNCTION(BlueprintOverride)
@@ -62,8 +86,11 @@ class URangedAttackCapability : UCapability
 
             ChargeRatio = HandleCharging(DeltaTime, Projectile);
             
-            if(Projectile.DisplayTrajectory)
-                DrawSimulatedTrajectory(SimulateProjectileTrajectory(1.0f, 0.01f, Projectile.GravityEffectMultiplier));
+            if(Projectile.DisplaySimulatedTrajectory)
+            {
+                TArray<FVector> Points = SimulateProjectileTrajectory(Projectile.MaxChargeTime, 0.01f, Projectile.GravityEffectMultiplier);
+                DrawSimulatedTrajectory(Points, Projectile);
+            }
 
             if (!Projectile.AutoFireAtMaxCharge || ChargeRatio < 1.0f)
             {
@@ -88,12 +115,14 @@ class URangedAttackCapability : UCapability
     void FireProjectile()
     {
         AProjectileActorBase Projectile = Cast<AProjectileActorBase>(SpawnActor(RangedAttackComp.ProjectileClass, SpawnLocation));
+        Print("Firing projectile with velocity: " + InitialVelocity.ToString());
         
         if (Projectile != nullptr)
         {
             TArray<AActor> ActorsToIgnore;
             ActorsToIgnore.Add(Owner);
             Projectile.Init(Owner, InitialVelocity, ActorsToIgnore);
+            ClearSimulatedTrajectory();
         }
     }
 
@@ -117,23 +146,59 @@ class URangedAttackCapability : UCapability
         FVector Velocity = InitialVelocity;
         TArray<FVector> Points;
 
+        Points.Add(Position);
+
         for (float t = 0; t <= SimulationTime; t += TimeStep)
         {
+            Velocity.Z -= (RangedAttackComp.Gravity * GravityEffectMultiplier) * TimeStep;
             Position += Velocity * TimeStep;
             Points.Add(Position);
-
-            Velocity.Z -= (RangedAttackComp.Gravity * GravityEffectMultiplier) * TimeStep;
         }
 
         return Points;
     }
 
-    void DrawSimulatedTrajectory(const TArray<FVector>& Points)
+    void DrawSimulatedTrajectory(const TArray<FVector>& Points, AProjectileActorBase Projectile)
     {
-        for (const FVector& Point : Points)
+        Spline.ClearSplinePoints();
+        ClearSimulatedTrajectory();
+
+        for (int i = 0; i < Points.Num(); ++i)
         {
-            System::DrawDebugSphere(Point, 10.0f, 8);
+            Spline.AddSplinePointAtIndex(Points[i], i, ESplineCoordinateSpace::World, false);
         }
+        Spline.SetSplinePointType(Points.Num() - 1, ESplinePointType::CurveClamped, true);
+
+        // Create spline meshes between each pair of points
+        for (int i = 0; i < Points.Num() - 1; ++i)
+        {
+            USplineMeshComponent SplineMesh = USplineMeshComponent::Create(Owner);
+            SplineMesh.AttachToComponent(Spline);
+            SplineMesh.SetMobility(EComponentMobility::Movable);
+            SplineMesh.SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            SplineMesh.SetStartScale(FVector2D(0.1f, 0.1f));
+            SplineMesh.SetEndScale(FVector2D(0.1f, 0.1f));
+            SplineMesh.SetMaterial(0, RangedAttackComp.SimulatedProjectileTrajectoryMaterial);
+
+            FVector StartPos, StartTangent, EndPos, EndTangent;
+            Spline.GetLocationAndTangentAtSplinePoint(i, StartPos, StartTangent, ESplineCoordinateSpace::Local);
+            Spline.GetLocationAndTangentAtSplinePoint(i + 1, EndPos, EndTangent, ESplineCoordinateSpace::Local);
+
+            SplineMesh.SetStaticMesh(Projectile.TrajectoryMesh);
+            SplineMesh.SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
+
+            SplineMeshes.Add(SplineMesh);
+        }
+    }
+
+    void ClearSimulatedTrajectory()
+    {
+        Spline.ClearSplinePoints();
+        for (USplineMeshComponent Mesh : SplineMeshes)
+        {
+            Mesh.DestroyComponent(Mesh);
+        }
+        SplineMeshes.Empty();
     }
 
 };

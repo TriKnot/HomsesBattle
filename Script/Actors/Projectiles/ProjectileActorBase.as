@@ -28,7 +28,10 @@ class AProjectileActorBase : AActor
     float DamageAmount = 10.0f;
 
     UPROPERTY(Category = "Projectile Settings")
-    bool DisplayTrajectory = false;
+    bool DisplaySimulatedTrajectory = false;
+
+    UPROPERTY(Category = "Projectile Settings")
+    UStaticMesh TrajectoryMesh;
 
     default Root.SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     default Root.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
@@ -67,6 +70,7 @@ class AProjectileActorBase : AActor
     UFUNCTION(BlueprintEvent)
     void OnHit(AActor HitActor) 
     {
+        Print("Projectile hit: " + HitActor.GetName());
         if(IgnoredActors.Contains(HitActor))
             return;
 
