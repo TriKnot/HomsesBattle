@@ -201,6 +201,9 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         const int GridResultion = 5;  
         TArray<AActor> ActorsToIgnore;
         ActorsToIgnore.Add(Pawn);
+        TArray<EObjectTypeQuery> ObjectTypes;
+        ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+        ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldDynamic));
         
         // Loop over rows and columns and line to sample points in a grid.
         for (int32 row = 0; row < GridResultion; ++row)
@@ -219,13 +222,13 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
                                     + UpDir    * (RowHeight * TargetHeight * 0.5f);
                 
                 FHitResult HitResult;
-                System::LineTraceSingleByProfile(
+                System::LineTraceSingleForObjects(
                     PawnLocation + EyeHeightOffset,
                     SamplePoint,
-                    n"Visibility",
+                    ObjectTypes,
                     false,
                     ActorsToIgnore,
-                    EDrawDebugTrace::None, 
+                    EDrawDebugTrace::ForDuration, 
                     HitResult,
                     true,
                     FLinearColor::Red,
