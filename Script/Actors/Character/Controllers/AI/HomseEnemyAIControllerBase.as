@@ -40,6 +40,13 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
     FVector EyeHeightOffset = FVector(0.0f, 0.0f, 45.0f);
 
 
+    // Line of Sight
+    TArray<EObjectTypeQuery> ObjectTypes;
+    default ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
+    default ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldDynamic));
+
+    TArray<AActor> ActorsToIgnore;
+
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
@@ -49,6 +56,8 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         Blackboard.SetValueAsFloat(DefenceRangeKeyName, DefenceRange);
 
         SetState(StartingState);
+
+        ActorsToIgnore.Add(GetControlledPawn());
     }
 
     UFUNCTION()
@@ -199,11 +208,6 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
         
         // Set up the line trace parameters
         const int GridResultion = 5;  
-        TArray<AActor> ActorsToIgnore;
-        ActorsToIgnore.Add(Pawn);
-        TArray<EObjectTypeQuery> ObjectTypes;
-        ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
-        ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldDynamic));
         
         // Loop over rows and columns and line to sample points in a grid.
         for (int32 row = 0; row < GridResultion; ++row)
