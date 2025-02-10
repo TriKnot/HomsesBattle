@@ -16,6 +16,9 @@ class UHomseMovementComponent : ULockableComponent
     bool bIsJumping = false;
 
     UPROPERTY()
+    bool bIsDashing = false;
+
+    UPROPERTY()
     UCharacterMovementComponent CharacterMovement;
 
     UPROPERTY()

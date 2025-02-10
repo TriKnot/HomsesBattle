@@ -45,6 +45,7 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
+        MoveComp.bIsDashing = true;
         CooldownTimer = 0.0f;
         FVector2D MoveInput = CapabilityComp.MovementInput;
         FRotator ControllerRotator = HomseOwner.GetControlRotation();
@@ -86,5 +87,6 @@ class UDashCapability : UCapability
             return;
 
         CooldownTimer += DeltaTime;        
+        MoveComp.bIsDashing = false;
     }
 };
