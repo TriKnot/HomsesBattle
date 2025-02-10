@@ -4,6 +4,8 @@ class URangedAttackCapability : UCapability
 
     UCapabilityComponent CapComp;
     URangedAttackComponent RangedAttackComp;
+    UHomseMovementComponent MoveComp;
+    AController Controller;
     USplineComponent Spline;
     TArray<USplineMeshComponent> SplineMeshes;
 
@@ -19,6 +21,8 @@ class URangedAttackCapability : UCapability
         AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
         CapComp = HomseOwner.CapabilityComponent;
         RangedAttackComp = HomseOwner.RangedAttackComponent;
+        Controller = HomseOwner.Controller;
+        MoveComp = HomseOwner.HomseMovementComponent;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -65,22 +69,23 @@ class URangedAttackCapability : UCapability
             return;
         }
 
-        RangedAttackComp.ProjectilSpawnLocation = RangedAttackComp.CalculateSpawnLocation();
-
         if (CapComp.GetActionStatus(InputActions::SecondaryAttack))
         {
             RangedAttackComp.bIsCharging = true;
             ChargeRatio = HandleCharging(DeltaTime, RangedAttackComp.ProjectileData);
             RangedAttackComp.InitialVelocity = CalculateInitialVelocity(RangedAttackComp.ProjectileData);
             VelocityMultiplier = Math::Lerp(RangedAttackComp.ProjectileData.InitialVelocityMultiplier, RangedAttackComp.ProjectileData.MaxVelocityMultiplier, ChargeRatio);
+            MoveComp.SetOrientToMovement(false);
 
             if (!RangedAttackComp.ProjectileData.AutoFireAtMaxCharge || ChargeRatio < 1.0f)
             {
                 return;
             }
+
         }
 
         FireProjectile();
+        MoveComp.SetOrientToMovement(true);
         OnCooldown = true;
     }
 
@@ -94,7 +99,7 @@ class URangedAttackCapability : UCapability
 
     void FireProjectile()
     {
-        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), RangedAttackComp.ProjectilSpawnLocation,
+        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), RangedAttackComp.AttackSocketLocation,
                 FRotator::ZeroRotator, n"Projectile", true)); 
         
         if (Projectile != nullptr)
@@ -111,6 +116,8 @@ class URangedAttackCapability : UCapability
     FVector CalculateInitialVelocity(UProjectileData ProjectileData)
     {
         FVector ForwardDirection = Owner.GetActorForwardVector();
+        FVector ControllerRotation = Controller.GetControlRotation().Vector();
+        ForwardDirection.Z = ControllerRotation.Z;
         return ForwardDirection * VelocityMultiplier + FVector(0, 0, ProjectileData.InitialZAngleMultiplier * VelocityMultiplier);
     }
 

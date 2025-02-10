@@ -47,7 +47,7 @@ class UTrajectoryVisualizationCapability : UCapability
     void TickActive(float DeltaTime)
     {
         TArray<FVector> Points = SimulateProjectileTrajectory(
-            RangedAttackComp.CalculateSpawnLocation(), 
+            RangedAttackComp.AttackSocketLocation, 
             RangedAttackComp.InitialVelocity, 
             1.0f, 
             0.01f);

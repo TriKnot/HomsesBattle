@@ -6,6 +6,9 @@ class URangedAttackComponent : UActorComponent
     UPROPERTY()
     FVector ProjectileSpawnOffset = FVector(150.0f, 0.0f, -25.0f);
 
+    UPROPERTY()
+    FName AttackSocket = n"AttackSocket";
+
     // Trajectory visualization
     UPROPERTY(Category = "Trajectory")
     UStaticMesh TrajectoryMesh;
@@ -13,20 +16,26 @@ class URangedAttackComponent : UActorComponent
     UPROPERTY(Category = "Trajectory")
     UMaterialInstance TrajectoryMaterial;
 
+    AHomseCharacterBase HomseOwner;
+
+    // Trajectory visualization
     USplineComponent TrajectorySpline;
-
     TArray<USplineMeshComponent> SplineMeshes;
-
     bool bIsCharging = false;
-    FVector ProjectilSpawnLocation;
     FVector InitialVelocity;
 
-
-    FVector CalculateSpawnLocation()
+    UFUNCTION(BlueprintOverride)
+    void BeginPlay()
     {
-        return Owner.GetActorLocation() 
-            + Owner.GetActorForwardVector() * ProjectileSpawnOffset.X
-            + Owner.GetActorRightVector() * ProjectileSpawnOffset.Y
-            + Owner.GetActorUpVector() * ProjectileSpawnOffset.Z;
+        HomseOwner = Cast<AHomseCharacterBase>(GetOwner());
+        
+        if(!IsValid(HomseOwner))
+            PrintError("URangedAttackComponent: Owner is not AHomseCharacterBase");
     }
+
+    FVector GetAttackSocketLocation() property
+    {
+        return HomseOwner.Mesh.GetSocketLocation(AttackSocket);
+    }
+
 };
