@@ -30,7 +30,6 @@ class UHomseMovementComponent : ULockableComponent
         CharacterMovement.bUseControllerDesiredRotation = false;
     }
 
-    UFUNCTION(BlueprintCallable)
     void SetMovementSpeed(EMovementSpeed Speed)
     {
         switch (Speed)
@@ -49,7 +48,6 @@ class UHomseMovementComponent : ULockableComponent
         }
     }
 
-    UFUNCTION(BlueprintCallable)
     void AddMovementInput(FVector WorldDirection, float ScaleValue, bool bForce)
     {
         if(bIsBlocked)
@@ -59,29 +57,31 @@ class UHomseMovementComponent : ULockableComponent
         CharacterMovement.AddInputVector(WorldDirection * ScaleValue, bForce);
     }
 
-    UFUNCTION(BlueprintCallable)
     void SetVelocity(FVector NewVelocity)
     {
         CharacterMovement.Velocity = NewVelocity;
     }
 
-    UFUNCTION(BlueprintCallable)
     void AddVelocity(FVector AddVelocity)
     {
         CharacterMovement.Velocity += AddVelocity;
     }
 
-    UFUNCTION(BlueprintCallable)
     FVector GetVelocity() property
     {
         return CharacterMovement.Velocity;
     }
 
-    UFUNCTION(BlueprintCallable)
-    void SetMovementMode(EMovementMode NewMovementMode)
+    void SetMovementMode(EMovementMode NewMovementMode) 
     {
         CharacterMovement.MovementMode = NewMovementMode;
     }
+
+    EMovementMode GetMovementMode() property
+    {
+        return CharacterMovement.MovementMode;
+    }
+
 
     UFUNCTION(BlueprintCallable)
     bool GetIsGrounded() property
