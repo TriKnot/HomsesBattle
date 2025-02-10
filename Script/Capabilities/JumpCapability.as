@@ -46,7 +46,7 @@ class UJumpCapability : UCapability
         FVector NewVelocity = MoveComp.Velocity;
         NewVelocity.Z = MoveComp.JumpForce;
         MoveComp.SetVelocity(NewVelocity);
-        MoveComp.SetMovementMode(EMovementMode::MOVE_Flying);
+        MoveComp.SetMovementMode(EMovementMode::MOVE_Falling);
     }
 
     UFUNCTION(BlueprintOverride)
