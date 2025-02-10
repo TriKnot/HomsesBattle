@@ -10,7 +10,7 @@ class UMeleeAttackCapability : UCapability
     float DamageAmount = 10.0f;
     float ActiveDuration = 0.1f;
     float CooldownTime = 0.2f;
-    float DashStrength = 1000.0f;
+    float DashStrength = 1500.0f;
 
 
     float DashLength = 1000.0f;
@@ -59,11 +59,20 @@ class UMeleeAttackCapability : UCapability
         CooldownTimer = 0.0f;
 
         // Snap character rotation to camera rotation
-        FRotator DashDirection = HomseOwner.GetControlRotation();
+        FRotator DashDirection;
+        if(MoveComp.MovementMode == EMovementMode::MOVE_Falling)
+        {
+            DashDirection = HomseOwner.GetActorRotation();
+        }         
+        else
+        {
+            DashDirection = HomseOwner.GetControlRotation();
+            MoveComp.SetOrientToMovement(false);    
+        }
+
         DashDirection.Pitch = 0.0f;
         DashDirection.Normalize();
         //HomseOwner.SetActorRotation(DashDirection);
-        MoveComp.SetOrientToMovement(false);
 
         InitialVelocity = MoveComp.Velocity.Size();
 
