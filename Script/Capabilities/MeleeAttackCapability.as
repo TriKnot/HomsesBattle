@@ -8,15 +8,18 @@ class UMeleeAttackCapability : UCapability
     UCapabilityComponent CapComp;
 
     float DamageAmount = 10.0f;
-    float ActiveDuration = 0.2f;
-    float CooldownTime = 0.5f;
+    float ActiveDuration = 0.1f;
+    float CooldownTime = 0.2f;
+    float DashStrength = 1000.0f;
+
 
     float DashLength = 1000.0f;
     bool bShouldBrake = false;
-    FVector InitialVelocity;
+    float InitialVelocity;
 
-    float ActiveTimer = 0.0f;
+    float CooldownTimer = 0.0f;
     TArray<AActor> HitActors;
+    UAsyncRootMovement AsyncRootMove;
 
 
     UFUNCTION(BlueprintOverride)
@@ -46,34 +49,48 @@ class UMeleeAttackCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return ActiveTimer >= ActiveDuration + CooldownTime;
+        return CooldownTimer >= CooldownTime;
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
-        ActiveTimer = 0.0f;
         HitActors.Empty();
-        InitialVelocity = MoveComp.Velocity;
+        CooldownTimer = 0.0f;
 
-        MoveComp.AddVelocity(HomseOwner.ActorForwardVector * DashLength);
-        bShouldBrake = true;
+        // Snap character rotation to camera rotation
+        FRotator DashDirection = HomseOwner.GetControlRotation();
+        DashDirection.Pitch = 0.0f;
+        DashDirection.Normalize();
+        //HomseOwner.SetActorRotation(DashDirection);
+        MoveComp.SetOrientToMovement(false);
+
+        InitialVelocity = MoveComp.Velocity.Size();
+
+        AsyncRootMove = UAsyncRootMovement::ApplyConstantForce
+        (
+            MoveComp.CharacterMovement, 
+            DashDirection.Vector(), 
+            DashStrength, 
+            ActiveDuration, 
+            false, 
+            MoveComp.DashCurve, 
+            true, 
+            ERootMotionFinishVelocityMode::ClampVelocity, 
+            FVector::ZeroVector, 
+            InitialVelocity * 2
+        );
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        ActiveTimer += DeltaTime;
-
-        if(ActiveTimer >= ActiveDuration)
+        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
         {
-            if(bShouldBrake)
-            {
-                MoveComp.SetVelocity(InitialVelocity);
-                bShouldBrake = false;
-            }
+            CooldownTimer += DeltaTime;
+            MoveComp.SetOrientToMovement(true);
+            return;   
         }
-
 
         TArray<UHealthComponent> HitHealthComps;
         if(HitBox.TryGetHitHealthComponents(HitHealthComps))
