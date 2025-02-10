@@ -4,15 +4,13 @@ class UDashCapability : UCapability
     UHomseMovementComponent MoveComp;
     UCapabilityComponent CapabilityComp;
     AHomseCharacterBase HomseOwner;
+    UAsyncRootMovement AsyncRootMove;
 
     float Duration = 0.2f;
-    float DashLength = 1000.0f;
-    FVector DashVelocity;
-    float DashTimer = 0.0f;
+    float DashStrength = 2500.0f;
+    float CooldownTimer = 0.0f;
     float DashCooldown = 1.0f;
-
-    FVector InitialVelocity;
-    double LastDashTime = 0.0;
+    float InitialVelocity = 0.0f;
 
 
     UFUNCTION(BlueprintOverride)
@@ -26,9 +24,6 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        if(GetWorld().TimeSeconds - LastDashTime < DashCooldown + Duration)
-            return false;
-
         if(!CapabilityComp.GetActionStatus(InputActions::Dash))
             return false;
         
@@ -44,40 +39,52 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return DashTimer >= Duration;
+        return CooldownTimer >= DashCooldown;
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
-        DashTimer = 0.0f;
+        CooldownTimer = 0.0f;
         FVector2D MoveInput = CapabilityComp.MovementInput;
         FRotator ControllerRotator = HomseOwner.GetControlRotation();
 
-        DashVelocity = FVector(ControllerRotator.GetForwardVector() * MoveInput.Y + ControllerRotator.GetRightVector() * MoveInput.X) * (DashLength / Duration);
-        InitialVelocity = MoveComp.Velocity;
+        FVector DashDirection = FVector(ControllerRotator.GetForwardVector() * MoveInput.Y + ControllerRotator.GetRightVector() * MoveInput.X);
+        DashDirection.Z = 0.0f;
+        DashDirection.Normalize();
+        InitialVelocity = MoveComp.Velocity.Size();
+
+        AsyncRootMove = UAsyncRootMovement::ApplyConstantForce
+        (
+            MoveComp.CharacterMovement, 
+            DashDirection, 
+            DashStrength, 
+            Duration, 
+            false, 
+            MoveComp.DashCurve, 
+            true, 
+            ERootMotionFinishVelocityMode::ClampVelocity, 
+            FVector::ZeroVector, 
+            InitialVelocity * 2
+        );
+
         MoveComp.Lock();
-        LastDashTime = GetWorld().TimeSeconds;
     }
+
     
     UFUNCTION(BlueprintOverride)
     void OnDeactivate()
     {
-        DashVelocity = FVector::ZeroVector;
-        MoveComp.SetVelocity(InitialVelocity);
         MoveComp.Unlock();
+        AsyncRootMove = nullptr;
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        DashTimer += DeltaTime;
-        
-        float Alpha = Math::Clamp(DashTimer / Duration, 0.0f, 1.0f);
-        float ZVelocity = MoveComp.Velocity.Z;
-        FVector NewVelocity = Math::Lerp(DashVelocity, InitialVelocity, Alpha);
-        NewVelocity.Z = ZVelocity;
-        MoveComp.SetVelocity(NewVelocity);
-        MoveComp.Lock();
+        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState == ERootMotionState::Ongoing)
+            return;
+
+        CooldownTimer += DeltaTime;        
     }
 };
