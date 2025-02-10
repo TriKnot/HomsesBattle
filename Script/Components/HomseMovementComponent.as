@@ -26,6 +26,8 @@ class UHomseMovementComponent : ULockableComponent
     {
         AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(GetOwner());
         CharacterMovement = HomseOwner.CharacterMovement;
+        CharacterMovement.bOrientRotationToMovement = true;
+        CharacterMovement.bUseControllerDesiredRotation = false;
     }
 
     UFUNCTION(BlueprintCallable)
@@ -87,5 +89,10 @@ class UHomseMovementComponent : ULockableComponent
         return CharacterMovement.IsMovingOnGround();
     }
 
+    void SetOrientToMovement(bool bOrientToMovement)
+    {
+        CharacterMovement.bOrientRotationToMovement = bOrientToMovement;
+        CharacterMovement.bUseControllerDesiredRotation = !bOrientToMovement;
+    }
 
 }
