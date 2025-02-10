@@ -228,7 +228,7 @@ class ASHomseEnemyAIControllerBase : AHomseEnemyControllerBase
                     ObjectTypes,
                     false,
                     ActorsToIgnore,
-                    EDrawDebugTrace::ForDuration, 
+                    EDrawDebugTrace::None, 
                     HitResult,
                     true,
                     FLinearColor::Red,
