@@ -1,34 +1,30 @@
-class URangedAttackCapability : UCapability
+class URangedAttackCapability : UAbilityCapability
 {
-    default Priority = ECapabilityPriority::PostInput;
-
-    UCapabilityComponent CapComp;
+    // Components
     URangedAttackComponent RangedAttackComp;
-    UHomseMovementComponent MoveComp;
     AController Controller;
     USplineComponent Spline;
     TArray<USplineMeshComponent> SplineMeshes;
 
     float ChargeTime = 0.0f;
-    float CooldownTimer = 0.0f;
-    bool OnCooldown = false;
     float ChargeRatio;
-    float VelocityMultiplier;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
-        AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
-        CapComp = HomseOwner.CapabilityComponent;
+        Super::Setup();
+        if(HomseOwner == nullptr)
+            return;
+        
         RangedAttackComp = HomseOwner.RangedAttackComponent;
         Controller = HomseOwner.Controller;
-        MoveComp = HomseOwner.HomseMovementComponent;
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return IsValid(RangedAttackComp.ProjectileData) && CapComp.GetActionStatus(InputActions::SecondaryAttack); 
+        return IsValid(RangedAttackComp.ProjectileData) 
+        && CapComp.GetActionStatus(InputActions::SecondaryAttack); 
     }
 
     UFUNCTION(BlueprintOverride)
@@ -40,17 +36,15 @@ class URangedAttackCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
+        Super::OnActivate();
         ChargeTime = 0.0f;
-        OnCooldown = false;
-        CooldownTimer = RangedAttackComp.ProjectileData.CooldownTime;
     }
 
     UFUNCTION(BlueprintOverride)
     void OnDeactivate()
     {
+        Super::OnDeactivate();
         ChargeTime = 0.0f;
-        OnCooldown = false;
-        CooldownTimer = 0.0f;     
         RangedAttackComp.bIsCharging = false;
     }
 
@@ -59,22 +53,20 @@ class URangedAttackCapability : UCapability
     {
         RangedAttackComp.bIsCharging = false;
 
+        // If on cooldown, update the cooldown timer
         if (OnCooldown)
         {
-            if (CooldownTimer > 0.0f)
-            {
-                CooldownTimer -= DeltaTime;
-                return;
-            }
+            UpdateCooldown(DeltaTime);
             return;
         }
 
+        // If the player is still holding the button, keep charging
         if (CapComp.GetActionStatus(InputActions::SecondaryAttack))
         {
             RangedAttackComp.bIsCharging = true;
-            ChargeRatio = HandleCharging(DeltaTime, RangedAttackComp.ProjectileData);
-            RangedAttackComp.InitialVelocity = CalculateInitialVelocity(RangedAttackComp.ProjectileData);
-            VelocityMultiplier = Math::Lerp(RangedAttackComp.ProjectileData.InitialVelocityMultiplier, RangedAttackComp.ProjectileData.MaxVelocityMultiplier, ChargeRatio);
+            ChargeRatio = HandleCharging(DeltaTime);
+            float VelocityMultiplier = Math::Lerp(RangedAttackComp.ProjectileData.InitialVelocityMultiplier, RangedAttackComp.ProjectileData.MaxVelocityMultiplier, ChargeRatio);
+            RangedAttackComp.InitialVelocity = CalculateInitialVelocity(RangedAttackComp.ProjectileData, VelocityMultiplier);
             MoveComp.SetOrientToMovement(false);
 
             if (!RangedAttackComp.ProjectileData.AutoFireAtMaxCharge || ChargeRatio < 1.0f)
@@ -89,12 +81,11 @@ class URangedAttackCapability : UCapability
         OnCooldown = true;
     }
 
-    float HandleCharging(float DeltaTime, UProjectileData ProjectileData)
+    float HandleCharging(float DeltaTime)
     {
-        ChargeTime = Math::Clamp(ChargeTime + DeltaTime, 0.0f, ProjectileData.MaxChargeTime);
-        ChargeRatio = (ProjectileData.MaxChargeTime == 0.0f) ? 1.0f : ChargeTime / ProjectileData.MaxChargeTime;
+        ChargeTime = Math::Clamp(ChargeTime + DeltaTime, 0.0f, RangedAttackComp.ProjectileData.MaxChargeTime);
 
-        return ChargeRatio;
+        return (RangedAttackComp.ProjectileData.MaxChargeTime == 0.0f) ? 1.0f : ChargeTime / RangedAttackComp.ProjectileData.MaxChargeTime;
     }
 
     void FireProjectile()
@@ -113,7 +104,7 @@ class URangedAttackCapability : UCapability
         }
     }
 
-    FVector CalculateInitialVelocity(UProjectileData ProjectileData)
+    FVector CalculateInitialVelocity(UProjectileData ProjectileData, float VelocityMultiplier)
     {
         FVector ForwardDirection = Owner.GetActorForwardVector();
         FVector ControllerRotation = Controller.GetControlRotation().Vector();

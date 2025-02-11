@@ -1,11 +1,8 @@
-class UMeleeAttackCapability : UCapability
+class UMeleeAttackCapability : UAbilityCapability
 {
     default Priority = ECapabilityPriority::PostInput;
 
-    UHitSphereComponent HitBox;
-    UHomseMovementComponent MoveComp;
-    AHomseCharacterBase HomseOwner;
-    UCapabilityComponent CapComp;
+    USphereComponent HitSphere;
 
     float DamageAmount = 10.0f;
     float ActiveDuration = 0.1f;
@@ -17,7 +14,6 @@ class UMeleeAttackCapability : UCapability
     bool bShouldBrake = false;
     float InitialVelocity;
 
-    float CooldownTimer = 0.0f;
     TArray<AActor> HitActors;
     UAsyncRootMovement AsyncRootMove;
 
@@ -25,19 +21,25 @@ class UMeleeAttackCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
-        HomseOwner = Cast<AHomseCharacterBase>(Owner);
-        CapComp = HomseOwner.CapabilityComponent;
-        MoveComp = HomseOwner.HomseMovementComponent;
-        HitBox = UHitSphereComponent::Create(Owner);
-        HitBox.AttachToComponent(Owner.RootComponent);
-        HitBox.SetSphereRadius(50.0f);
-        HitBox.SetRelativeLocation(FVector(125.0f, 0.0f, 0.0f));
+        Super::Setup();
+        if(!IsValid(HomseOwner))
+            return;
+
+        HitSphere = USphereComponent::Create(Owner);
+        HitSphere.CollisionProfileName = n"Custom";
+        HitSphere.CollisionEnabled = ECollisionEnabled::QueryOnly;
+        HitSphere.CollisionResponseToAllChannels = ECollisionResponse::ECR_Ignore;
+        HitSphere.SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+        HitSphere.SetSphereRadius(500.0f);
+
+
+        //HitBox.AttachToComponent(HomseOwner.Mesh, HomseOwner);
     }
 
     UFUNCTION(BlueprintOverride)
     void Teardown()
     {
-        HitBox.DestroyComponent(HitBox);
+        HitSphere.DestroyComponent(HitSphere);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -47,39 +49,85 @@ class UMeleeAttackCapability : UCapability
     }
 
     UFUNCTION(BlueprintOverride)
-    bool ShouldDeactivate()
-    {
-        return CooldownTimer >= CooldownTime;
+    bool ShouldDeactivate() 
+    { 
+        return CooldownTimer <= 0.0f; 
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
+        Super::OnActivate();
         HitActors.Empty();
-        CooldownTimer = 0.0f;
 
-        // Snap character rotation to camera rotation
-        FRotator DashDirection;
-        if(MoveComp.MovementMode == EMovementMode::MOVE_Falling)
-        {
-            DashDirection = HomseOwner.GetActorRotation();
-        }         
-        else
-        {
-            DashDirection = HomseOwner.GetControlRotation();
-            MoveComp.SetOrientToMovement(false);    
-        }
+        if(MoveComp.IsGrounded)
+            AbilityHelpers::RotateActorToCameraRotation(HomseOwner);
 
+        // Dash in the direction the character is facing
+        FRotator DashDirection = HomseOwner.GetActorRotation();
         DashDirection.Pitch = 0.0f;
         DashDirection.Normalize();
-        //HomseOwner.SetActorRotation(DashDirection);
 
+        Dash(DashDirection.Vector());
+
+        // Check for any actors that are hit by the sphere on activation
+        TArray<UHealthComponent> HitHealthComps;
+        if(AbilityHelpers::TryGetHitHealthComponents(Cast<UPrimitiveComponent>(HitSphere), HitHealthComps))
+        {
+            for(UHealthComponent HitHealthComp : HitHealthComps)
+            {
+                DealDamageToHealthComponent(HitHealthComp);
+            }
+        }
+
+        // Handle the case where the sphere hits an actor after activation
+        HitSphere.OnComponentBeginOverlap.AddUFunction(this, n"OnHit");
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void TickActive(float DeltaTime)
+    {
+        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
+        {
+            UpdateCooldown(DeltaTime);
+            MoveComp.SetOrientToMovement(true);
+            return;   
+        }
+
+        System::DrawDebugSphere(HitSphere.GetWorldLocation(), HitSphere.SphereRadius, 12, FLinearColor::Red, 0);
+    }
+
+    UFUNCTION()
+    void OnHit(UPrimitiveComponent OverLappedComponent, AActor OtherActor, UPrimitiveComponent OtherComp, int OtherBodyIndex, bool bFromSweep, const FHitResult&in SweepResult)
+    {
+        UHealthComponent HitHealthComp = UHealthComponent::Get(OtherActor);
+        if(IsValid(HitHealthComp))
+            return;
+        DealDamageToHealthComponent(HitHealthComp);
+    }
+
+    void DealDamageToHealthComponent(UHealthComponent HealthComp)
+    {
+        AActor HitActor = HealthComp.GetOwner();
+        if(HitActor == Owner || HitActors.Contains(HitActor))
+            return;
+
+        FDamageInstanceData DamageInstance;
+        DamageInstance.DamageAmount = DamageAmount;
+        DamageInstance.SourceActor = Owner;
+        DamageInstance.DamageLocation = HitSphere.GetWorldLocation();
+        DamageInstance.DamageDirection = HealthComp.Owner.GetActorLocation() - Owner.GetActorLocation();
+        HealthComp.DamageInstances.Add(DamageInstance);
+    }
+
+    void Dash(FVector DashDirection)
+    {
         InitialVelocity = MoveComp.Velocity.Size();
 
         AsyncRootMove = UAsyncRootMovement::ApplyConstantForce
         (
             MoveComp.CharacterMovement, 
-            DashDirection.Vector(), 
+            DashDirection, 
             DashStrength, 
             ActiveDuration, 
             false, 
@@ -89,39 +137,7 @@ class UMeleeAttackCapability : UCapability
             FVector::ZeroVector, 
             InitialVelocity * 2
         );
+
     }
 
-    UFUNCTION(BlueprintOverride)
-    void TickActive(float DeltaTime)
-    {
-        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
-        {
-            CooldownTimer += DeltaTime;
-            MoveComp.SetOrientToMovement(true);
-            return;   
-        }
-
-        TArray<UHealthComponent> HitHealthComps;
-        if(HitBox.TryGetHitHealthComponents(HitHealthComps))
-        {
-            for(UHealthComponent HitHealthComp : HitHealthComps)
-            {
-                AActor HitActor = HitHealthComp.GetOwner();
-                if(HitActors.Contains(HitActor))
-                    continue;
-
-                FDamageInstanceData DamageInstance;
-
-                DamageInstance.DamageAmount = DamageAmount;
-                DamageInstance.SourceActor = Owner;
-                DamageInstance.DamageLocation = HitBox.GetWorldLocation();
-                DamageInstance.DamageDirection = HitActor.GetActorLocation() - Owner.GetActorLocation();
-                HitHealthComp.DamageInstances.Add(DamageInstance);
-                HitActors.Add(HitHealthComp.GetOwner());
-            }
-        }
-
-
-        System::DrawDebugSphere(HitBox.GetWorldLocation(), HitBox.SphereRadius, 12, FLinearColor::Red, 0);
-    }
 };
