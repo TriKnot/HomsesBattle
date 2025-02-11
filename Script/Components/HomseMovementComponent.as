@@ -87,7 +87,7 @@ class UHomseMovementComponent : ULockableComponent
 
 
     UFUNCTION(BlueprintCallable)
-    bool GetIsGrounded() property
+    bool GetIsGrounded() const property
     {
         return CharacterMovement.IsMovingOnGround();
     }
