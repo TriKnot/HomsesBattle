@@ -1,36 +1,24 @@
-class UDashCapability : UCapability
+class UDashCapability : UAbilityCapability
 {
     default Priority = ECapabilityPriority::PreMovement;
-    UHomseMovementComponent MoveComp;
-    UCapabilityComponent CapabilityComp;
-    AHomseCharacterBase HomseOwner;
+
     UAsyncRootMovement AsyncRootMove;
 
     float Duration = 0.2f;
     float DashStrength = 2500.0f;
-    float CooldownTimer = 0.0f;
     float DashCooldown = 1.0f;
     float InitialVelocity = 0.0f;
-
-
-    UFUNCTION(BlueprintOverride)
-    void Setup()
-    {
-        HomseOwner = Cast<AHomseCharacterBase>(Owner);
-        MoveComp = HomseOwner.HomseMovementComponent;
-        CapabilityComp = HomseOwner.CapabilityComponent;
-    }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        if(!CapabilityComp.GetActionStatus(InputActions::Dash))
+        if(!CapComp.GetActionStatus(InputActions::Dash))
             return false;
         
         if(MoveComp.bIsBlocked)
             return false;
 
-        if(CapabilityComp.MovementInput.IsNearlyZero())
+        if(CapComp.MovementInput.IsNearlyZero())
             return false;
 
         return  true;
@@ -39,15 +27,15 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return CooldownTimer >= DashCooldown;
+        return CooldownTimer <= 0.0f;
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
+        Super::OnActivate();
         MoveComp.bIsDashing = true;
-        CooldownTimer = 0.0f;
-        FVector2D MoveInput = CapabilityComp.MovementInput;
+        FVector2D MoveInput = CapComp.MovementInput;
         FRotator ControllerRotator = HomseOwner.GetControlRotation();
 
         FVector DashDirection = FVector(ControllerRotator.GetForwardVector() * MoveInput.Y + ControllerRotator.GetRightVector() * MoveInput.X);
@@ -83,10 +71,11 @@ class UDashCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState == ERootMotionState::Ongoing)
-            return;
-
-        CooldownTimer += DeltaTime;        
-        MoveComp.bIsDashing = false;
+        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
+        {
+            UpdateCooldown(DeltaTime);
+            MoveComp.bIsDashing = false;
+            return;   
+        }
     }
 };
