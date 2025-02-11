@@ -6,12 +6,13 @@ class UAbilityCapability : UCapability
     AHomseCharacterBase HomseOwner;
     UCapabilityComponent CapComp;
     UHomseMovementComponent MoveComp;
+    UAbilityComponent AbilityComp;
 
     // Cooldown
     UPROPERTY()
     float AbilityCooldown = 0.2f;
     float CooldownTimer = 0.0f;
-    bool OnCooldown = false;
+    bool bIsOnCooldown = false;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
@@ -22,6 +23,7 @@ class UAbilityCapability : UCapability
 
         CapComp = HomseOwner.CapabilityComponent;
         MoveComp = HomseOwner.HomseMovementComponent;
+        AbilityComp = HomseOwner.AbilityComponent;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -39,7 +41,7 @@ class UAbilityCapability : UCapability
     void ResetCoolDown()
     {
         CooldownTimer = AbilityCooldown;
-        OnCooldown = false;
+        bIsOnCooldown = false;
     }
 
     UFUNCTION(BlueprintEvent)
@@ -50,7 +52,7 @@ class UAbilityCapability : UCapability
             CooldownTimer -= DeltaTime;
             if (CooldownTimer <= 0.0f)
             {
-                OnCooldown = false;
+                bIsOnCooldown = false;
             }
         }
     }
