@@ -30,10 +30,8 @@ class UMeleeAttackCapability : UAbilityCapability
         HitSphere.CollisionEnabled = ECollisionEnabled::QueryOnly;
         HitSphere.CollisionResponseToAllChannels = ECollisionResponse::ECR_Ignore;
         HitSphere.SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-        HitSphere.SetSphereRadius(500.0f);
-
-
-        //HitBox.AttachToComponent(HomseOwner.Mesh, HomseOwner);
+        HitSphere.SetSphereRadius(50.0f);
+        HitSphere.AttachToComponent(HomseOwner.Mesh, HomseOwner.AbilityComponent.AttackSocket);
     }
 
     UFUNCTION(BlueprintOverride)
