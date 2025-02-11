@@ -31,12 +31,6 @@ class UAbilityCapability : UCapability
     }
 
     UFUNCTION(BlueprintOverride)
-    bool ShouldDeactivate()
-    {
-        return CooldownTimer <= 0.0f;
-    }
-
-    UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
         ResetCoolDown();
