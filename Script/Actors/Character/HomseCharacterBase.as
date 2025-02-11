@@ -13,7 +13,7 @@ class AHomseCharacterBase : ACharacter
     private UHomseMovementComponent Movement;
 
     UPROPERTY(DefaultComponent)
-    URangedAttackComponent RangedAttackComponent;
+    UAbilityComponent AbilityComponent;
 
     default CapsuleComponent.SimulatePhysics = true;
     default CapsuleComponent.CollisionProfileName = n"Custom";
