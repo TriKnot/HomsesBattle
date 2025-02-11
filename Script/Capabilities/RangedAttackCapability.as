@@ -1,7 +1,6 @@
 class URangedAttackCapability : UAbilityCapability
 {
     // Components
-    UAbilityComponent AbilityComp;
     AController Controller;
     USplineComponent Spline;
     TArray<USplineMeshComponent> SplineMeshes;
@@ -16,7 +15,6 @@ class URangedAttackCapability : UAbilityCapability
         if(HomseOwner == nullptr)
             return;
         
-        AbilityComp = HomseOwner.AbilityComponent;
         Controller = HomseOwner.Controller;
     }
 
@@ -30,7 +28,7 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return CooldownTimer <= 0.0f; 
+        return !bIsOnCooldown && !AbilityComp.bIsCharging;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -54,7 +52,7 @@ class URangedAttackCapability : UAbilityCapability
         AbilityComp.bIsCharging = false;
 
         // If on cooldown, update the cooldown timer
-        if (OnCooldown)
+        if (bIsOnCooldown)
         {
             UpdateCooldown(DeltaTime);
             return;
@@ -78,7 +76,6 @@ class URangedAttackCapability : UAbilityCapability
 
         FireProjectile();
         MoveComp.SetOrientToMovement(true);
-        OnCooldown = true;
     }
 
     float HandleCharging(float DeltaTime)

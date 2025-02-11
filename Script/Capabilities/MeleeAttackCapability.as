@@ -49,7 +49,7 @@ class UMeleeAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return CooldownTimer <= 0.0f; 
+        return !bIsOnCooldown;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -80,18 +80,21 @@ class UMeleeAttackCapability : UAbilityCapability
 
         // Handle the case where the sphere hits an actor after activation
         HitSphere.OnComponentBeginOverlap.AddUFunction(this, n"OnHit");
+
+        bIsOnCooldown = true;
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
+        // If dash is finished, update cooldown and return
+        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing) 
         {
             UpdateCooldown(DeltaTime);
             MoveComp.SetOrientToMovement(true);
             return;   
         }
-
+        
         System::DrawDebugSphere(HitSphere.GetWorldLocation(), HitSphere.SphereRadius, 12, FLinearColor::Red, 0);
     }
 
