@@ -3,52 +3,52 @@ class UTrajectoryVisualizationCapability : UCapability
     default Priority = ECapabilityPriority::PreMovement;
     
     UCapabilityComponent CapComp;
-    URangedAttackComponent RangedAttackComp;
+    UAbilityComponent AbilityComp;
     UProjectileData ProjectileData;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
         AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
-        RangedAttackComp = HomseOwner.RangedAttackComponent;
+        AbilityComp = HomseOwner.AbilityComponent;
         CapComp = HomseOwner.CapabilityComponent;
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return RangedAttackComp.bIsCharging && RangedAttackComp.ProjectileData.DisplayTrajectory;
+        return AbilityComp.bIsCharging && AbilityComp.ProjectileData.DisplayTrajectory;
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return !RangedAttackComp.bIsCharging;
+        return !AbilityComp.bIsCharging;
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
-        ProjectileData = RangedAttackComp.ProjectileData;
-        RangedAttackComp.TrajectorySpline = USplineComponent::Create(Owner);
-        RangedAttackComp.TrajectorySpline.AttachToComponent(Owner.RootComponent);
-        RangedAttackComp.TrajectorySpline.SetMobility(EComponentMobility::Movable);
-        RangedAttackComp.TrajectorySpline.SetSimulatePhysics(false);
-        RangedAttackComp.TrajectorySpline.SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        ProjectileData = AbilityComp.ProjectileData;
+        AbilityComp.TrajectorySpline = USplineComponent::Create(Owner);
+        AbilityComp.TrajectorySpline.AttachToComponent(Owner.RootComponent);
+        AbilityComp.TrajectorySpline.SetMobility(EComponentMobility::Movable);
+        AbilityComp.TrajectorySpline.SetSimulatePhysics(false);
+        AbilityComp.TrajectorySpline.SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
 
     UFUNCTION(BlueprintOverride)
     void OnDeactivate()
     {
-        ClearSimulatedTrajectory(RangedAttackComp.TrajectorySpline, RangedAttackComp.SplineMeshes);
+        ClearSimulatedTrajectory(AbilityComp.TrajectorySpline, AbilityComp.SplineMeshes);
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
         TArray<FVector> Points = SimulateProjectileTrajectory(
-            RangedAttackComp.AttackSocketLocation, 
-            RangedAttackComp.InitialVelocity, 
+            AbilityComp.AttackSocketLocation, 
+            AbilityComp.InitialVelocity, 
             1.0f, 
             0.01f);
         DrawSimulatedTrajectory(Points, ProjectileData);
@@ -73,9 +73,9 @@ class UTrajectoryVisualizationCapability : UCapability
 
     void DrawSimulatedTrajectory(const TArray<FVector>& Points, UProjectileData Data)
     {
-        USplineComponent Spline = RangedAttackComp.TrajectorySpline;
+        USplineComponent Spline = AbilityComp.TrajectorySpline;
         Spline.ClearSplinePoints();
-        ClearSimulatedTrajectory(RangedAttackComp.TrajectorySpline, RangedAttackComp.SplineMeshes);
+        ClearSimulatedTrajectory(AbilityComp.TrajectorySpline, AbilityComp.SplineMeshes);
 
         for (int i = 0; i < Points.Num(); ++i)
         {
@@ -91,8 +91,8 @@ class UTrajectoryVisualizationCapability : UCapability
             SplineMesh.SetCollisionEnabled(ECollisionEnabled::NoCollision);
             SplineMesh.SetStartScale(FVector2D(0.1f, 0.1f));
             SplineMesh.SetEndScale(FVector2D(0.1f, 0.1f));
-            SplineMesh.SetStaticMesh(RangedAttackComp.TrajectoryMesh);
-            SplineMesh.SetMaterial(0, RangedAttackComp.TrajectoryMaterial);
+            SplineMesh.SetStaticMesh(AbilityComp.TrajectoryMesh);
+            SplineMesh.SetMaterial(0, AbilityComp.TrajectoryMaterial);
 
             FVector StartPos, StartTangent, EndPos, EndTangent;
             Spline.GetLocationAndTangentAtSplinePoint(i, StartPos, StartTangent, ESplineCoordinateSpace::Local);
@@ -100,7 +100,7 @@ class UTrajectoryVisualizationCapability : UCapability
 
             SplineMesh.SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
 
-            RangedAttackComp.SplineMeshes.Add(SplineMesh);
+            AbilityComp.SplineMeshes.Add(SplineMesh);
         }
     }
 

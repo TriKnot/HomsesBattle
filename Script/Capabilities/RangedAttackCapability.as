@@ -1,7 +1,7 @@
 class URangedAttackCapability : UAbilityCapability
 {
     // Components
-    URangedAttackComponent RangedAttackComp;
+    UAbilityComponent AbilityComp;
     AController Controller;
     USplineComponent Spline;
     TArray<USplineMeshComponent> SplineMeshes;
@@ -16,14 +16,14 @@ class URangedAttackCapability : UAbilityCapability
         if(HomseOwner == nullptr)
             return;
         
-        RangedAttackComp = HomseOwner.RangedAttackComponent;
+        AbilityComp = HomseOwner.AbilityComponent;
         Controller = HomseOwner.Controller;
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return IsValid(RangedAttackComp.ProjectileData) 
+        return IsValid(AbilityComp.ProjectileData) 
         && CapComp.GetActionStatus(InputActions::SecondaryAttack); 
     }
 
@@ -45,13 +45,13 @@ class URangedAttackCapability : UAbilityCapability
     {
         Super::OnDeactivate();
         ChargeTime = 0.0f;
-        RangedAttackComp.bIsCharging = false;
+        AbilityComp.bIsCharging = false;
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        RangedAttackComp.bIsCharging = false;
+        AbilityComp.bIsCharging = false;
 
         // If on cooldown, update the cooldown timer
         if (OnCooldown)
@@ -63,13 +63,13 @@ class URangedAttackCapability : UAbilityCapability
         // If the player is still holding the button, keep charging
         if (CapComp.GetActionStatus(InputActions::SecondaryAttack))
         {
-            RangedAttackComp.bIsCharging = true;
+            AbilityComp.bIsCharging = true;
             ChargeRatio = HandleCharging(DeltaTime);
-            float VelocityMultiplier = Math::Lerp(RangedAttackComp.ProjectileData.InitialVelocityMultiplier, RangedAttackComp.ProjectileData.MaxVelocityMultiplier, ChargeRatio);
-            RangedAttackComp.InitialVelocity = CalculateInitialVelocity(RangedAttackComp.ProjectileData, VelocityMultiplier);
+            float VelocityMultiplier = Math::Lerp(AbilityComp.ProjectileData.InitialVelocityMultiplier, AbilityComp.ProjectileData.MaxVelocityMultiplier, ChargeRatio);
+            AbilityComp.InitialVelocity = CalculateInitialVelocity(AbilityComp.ProjectileData, VelocityMultiplier);
             MoveComp.SetOrientToMovement(false);
 
-            if (!RangedAttackComp.ProjectileData.AutoFireAtMaxCharge || ChargeRatio < 1.0f)
+            if (!AbilityComp.ProjectileData.AutoFireAtMaxCharge || ChargeRatio < 1.0f)
             {
                 return;
             }
@@ -83,23 +83,23 @@ class URangedAttackCapability : UAbilityCapability
 
     float HandleCharging(float DeltaTime)
     {
-        ChargeTime = Math::Clamp(ChargeTime + DeltaTime, 0.0f, RangedAttackComp.ProjectileData.MaxChargeTime);
+        ChargeTime = Math::Clamp(ChargeTime + DeltaTime, 0.0f, AbilityComp.ProjectileData.MaxChargeTime);
 
-        return (RangedAttackComp.ProjectileData.MaxChargeTime == 0.0f) ? 1.0f : ChargeTime / RangedAttackComp.ProjectileData.MaxChargeTime;
+        return (AbilityComp.ProjectileData.MaxChargeTime == 0.0f) ? 1.0f : ChargeTime / AbilityComp.ProjectileData.MaxChargeTime;
     }
 
     void FireProjectile()
     {
-        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), RangedAttackComp.AttackSocketLocation,
+        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), AbilityComp.AttackSocketLocation,
                 FRotator::ZeroRotator, n"Projectile", true)); 
         
         if (Projectile != nullptr)
         {
             TArray<AActor> ActorsToIgnore;
             ActorsToIgnore.Add(Owner);
-            Projectile.Init(Owner, RangedAttackComp.InitialVelocity, ActorsToIgnore, RangedAttackComp.ProjectileData);
+            Projectile.Init(Owner, AbilityComp.InitialVelocity, ActorsToIgnore, AbilityComp.ProjectileData);
             FinishSpawningActor(Projectile);
-            Projectile.SetActorScale3D(RangedAttackComp.ProjectileData.Scale);
+            Projectile.SetActorScale3D(AbilityComp.ProjectileData.Scale);
             Print(Projectile.GetActorScale3D().ToString());
         }
     }
