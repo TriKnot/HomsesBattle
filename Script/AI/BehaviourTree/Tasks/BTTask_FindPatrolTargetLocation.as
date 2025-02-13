@@ -36,7 +36,7 @@ class UBTTask_FindPatrolTargetLocation : UBTTask_BlueprintBase
     {
         TArray<FVector> Locations;
 
-        if (!QueryInstance.GetQueryResultsAsLocations(Locations) && Locations.Num() > 0)
+        if (!QueryInstance.GetQueryResultsAsLocations(Locations))
         {
             PrintError("No Results found | BTTask_FindPatrolTargetLocation->OnQueryFinished");
             FinishExecute(false);
