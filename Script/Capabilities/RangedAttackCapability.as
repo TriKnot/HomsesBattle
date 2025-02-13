@@ -5,8 +5,13 @@ class URangedAttackCapability : UAbilityCapability
     USplineComponent Spline;
     TArray<USplineMeshComponent> SplineMeshes;
 
+    URangedAttackData RangedAbilityData;
+    UTrajectoryVisualization TrajectoryVisualization;
+
+
     float ChargeTime = 0.0f;
     float ChargeRatio;
+    bool bIsCharging = false;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
@@ -21,14 +26,13 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return IsValid(AbilityComp.ProjectileData) 
-        && CapComp.GetActionStatus(InputActions::SecondaryAttack); 
+        return AbilityComp.IsAbilityActive(this);
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return !bIsOnCooldown && !AbilityComp.bIsCharging;
+        return !bIsOnCooldown && !bIsCharging;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -36,6 +40,17 @@ class URangedAttackCapability : UAbilityCapability
     {
         Super::OnActivate();
         ChargeTime = 0.0f;
+        bIsCharging = false;
+
+        RangedAbilityData = Cast<URangedAttackData>(AbilityComp.GetAbilityData(this));
+        AbilityCooldown = RangedAbilityData.CooldownTime;
+        
+        if(RangedAbilityData.DisplayTrajectory && !IsValid(TrajectoryVisualization))
+        {
+            TrajectoryVisualization = Cast<UTrajectoryVisualization>(NewObject(this, UTrajectoryVisualization::StaticClass()));
+            if(IsValid(TrajectoryVisualization))
+                TrajectoryVisualization.Init(RangedAbilityData, Owner);
+        }
     }
 
     UFUNCTION(BlueprintOverride)
@@ -43,70 +58,83 @@ class URangedAttackCapability : UAbilityCapability
     {
         Super::OnDeactivate();
         ChargeTime = 0.0f;
-        AbilityComp.bIsCharging = false;
+        bIsCharging = false;
+        MoveComp.SetOrientToMovement(true);
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        AbilityComp.bIsCharging = false;
-
-        // If on cooldown, update the cooldown timer
         if (bIsOnCooldown)
         {
             UpdateCooldown(DeltaTime);
             return;
         }
 
-        // If the player is still holding the button, keep charging
-        if (CapComp.GetActionStatus(InputActions::SecondaryAttack))
+        bIsCharging = false;
+
+        if (AbilityComp.IsAbilityActive(this))
         {
-            AbilityComp.bIsCharging = true;
-            ChargeRatio = HandleCharging(DeltaTime);
-            float VelocityMultiplier = Math::Lerp(AbilityComp.ProjectileData.InitialVelocityMultiplier, AbilityComp.ProjectileData.MaxVelocityMultiplier, ChargeRatio);
-            AbilityComp.InitialVelocity = CalculateInitialVelocity(AbilityComp.ProjectileData, VelocityMultiplier);
-            MoveComp.SetOrientToMovement(false);
-
-            if (!AbilityComp.ProjectileData.AutoFireAtMaxCharge || ChargeRatio < 1.0f)
+            if(RangedAbilityData.ChargedShot)
             {
-                return;
+                bIsCharging = true;
+                ChargeRatio = HandleCharging(DeltaTime);
             }
-
+            MoveComp.SetOrientToMovement(false);
         }
 
+        float VelocityMultiplier = Math::Lerp(RangedAbilityData.InitialVelocityMultiplier, RangedAbilityData.MaxVelocityMultiplier, ChargeRatio);
+        AbilityComp.InitialVelocity = CalculateInitialVelocity(VelocityMultiplier);
+
+        if(RangedAbilityData.DisplayTrajectory)
+        {
+            TrajectoryVisualization.ClearSimulatedTrajectory();
+        }
+
+        if(RangedAbilityData.ChargedShot && bIsCharging)
+        {    
+            if(RangedAbilityData.DisplayTrajectory)
+            {
+                TrajectoryVisualization.Simulate(HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket), AbilityComp.InitialVelocity);
+            }
+            return;        
+        }    
+
         FireProjectile();
-        MoveComp.SetOrientToMovement(true);
+        bIsOnCooldown = true;
+        bIsCharging = false;
     }
 
     float HandleCharging(float DeltaTime)
     {
-        ChargeTime = Math::Clamp(ChargeTime + DeltaTime, 0.0f, AbilityComp.ProjectileData.MaxChargeTime);
+        ChargeTime = Math::Clamp(ChargeTime + DeltaTime, 0.0f, RangedAbilityData.MaxChargeTime);
 
-        return (AbilityComp.ProjectileData.MaxChargeTime == 0.0f) ? 1.0f : ChargeTime / AbilityComp.ProjectileData.MaxChargeTime;
+        return (RangedAbilityData.MaxChargeTime == 0.0f) ? 1.0f : ChargeTime / RangedAbilityData.MaxChargeTime;
     }
 
     void FireProjectile()
     {
-        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), AbilityComp.AttackSocketLocation,
+        FVector SocketLocation = HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket);
+        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), SocketLocation,
                 FRotator::ZeroRotator, n"Projectile", true)); 
         
         if (Projectile != nullptr)
         {
             TArray<AActor> ActorsToIgnore;
             ActorsToIgnore.Add(Owner);
-            Projectile.Init(Owner, AbilityComp.InitialVelocity, ActorsToIgnore, AbilityComp.ProjectileData);
+            Projectile.Init(Owner, AbilityComp.InitialVelocity, ActorsToIgnore, RangedAbilityData.ProjectileData);
             FinishSpawningActor(Projectile);
-            Projectile.SetActorScale3D(AbilityComp.ProjectileData.Scale);
-            Print(Projectile.GetActorScale3D().ToString());
+            Projectile.SetActorScale3D(RangedAbilityData.ProjectileData.Scale);
         }
     }
 
-    FVector CalculateInitialVelocity(UProjectileData ProjectileData, float VelocityMultiplier)
+    FVector CalculateInitialVelocity(float VelocityMultiplier)
     {
         FVector ForwardDirection = Owner.GetActorForwardVector();
         FVector ControllerRotation = Controller.GetControlRotation().Vector();
-        ForwardDirection.Z = ControllerRotation.Z;
-        return ForwardDirection * VelocityMultiplier + FVector(0, 0, ProjectileData.InitialZAngleMultiplier * VelocityMultiplier);
+        if(RangedAbilityData.UseControllerZ)
+            ForwardDirection.Z = ControllerRotation.Z;
+        return ForwardDirection * VelocityMultiplier + FVector(0, 0, RangedAbilityData.InitialZAngleMultiplier * VelocityMultiplier);
     }
 
 };

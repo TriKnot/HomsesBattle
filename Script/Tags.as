@@ -7,10 +7,11 @@ namespace InputActions
     const FName MovementUp = FName("Movement.Up");  
     const FName MovementDown = FName("Movement.Down");
 
-    const FName Jump = FName("Jump");
-    const FName Dash = FName("Dash");
     const FName PrimaryAttack = FName("PrimaryAttack");
     const FName SecondaryAttack = FName("SecondaryAttack");
+    const FName Jump = FName("Jump");
+    const FName Dash = FName("Dash");
+    const FName Special = FName("Special");
 
 
     const FName Test = FName("Test");

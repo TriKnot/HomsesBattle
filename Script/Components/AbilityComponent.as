@@ -1,48 +1,152 @@
 class UAbilityComponent : UActorComponent
-{
+{    
+    // Store assigned abilities by slot
     UPROPERTY()
-    UObject AbilityData;
+    TMap<FName, UAbilityData> Abilities;    
 
     UPROPERTY()
-    FName AttackSocket = n"AttackSocket";
+    UAbilityData TestSwitchAbility;
+    bool bIsSwitchAbilityActive = false;
+
+    // Store active abilities by capability class
+    TArray<UAbilityData> ActiveAbilities;
 
     AHomseCharacterBase HomseOwner;
+    UCapabilityComponent CapComp;
 
-    // Optional Trajectory visualization
-    USplineComponent TrajectorySpline;
-    TArray<USplineMeshComponent> SplineMeshes;
+
+    // Temporary fields -> TODO: Find a better place for these---------------------------------------------------------
 
     // Ability state tracking
-    bool bIsCharging = false;
     FVector InitialVelocity;
 
-    // Temporary fields ---------------------------------------------------------------------------------------------
-    UPROPERTY()
-    UProjectileData ProjectileData;
-
-    UPROPERTY(Category = "Trajectory")
-    UStaticMesh TrajectoryMesh;
-
-    UPROPERTY(Category = "Trajectory")
-    UMaterialInstance TrajectoryMaterial;
     // ----------------------------------------------------------------------------------------------------------------
+    
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         HomseOwner = Cast<AHomseCharacterBase>(GetOwner());
         
         if (!IsValid(HomseOwner))
+        {
             PrintError("UAbilityComponent: Owner is not AHomseCharacterBase");
+            return;
+        }
+
+        CapComp = HomseOwner.CapabilityComponent;
+
+        InitStartingAbilities();
     }
 
-    FVector GetAttackSocketLocation() property
+    UFUNCTION(BlueprintOverride)
+    void Tick(float DeltaSeconds)
     {
-        return HomseOwner.Mesh.GetSocketLocation(AttackSocket);
+        UpdateActiveAbilities();
+
+        if(CapComp.GetActionStatus(InputActions::Test) && !bIsSwitchAbilityActive)
+        {
+            AddAbility(InputActions::PrimaryAttack, TestSwitchAbility);
+            Print("Added TestSwitchAbility");
+            bIsSwitchAbilityActive = true;
+        }
     }
 
-    // Template function to retrieve ability data cast to the correct type
-    UObject GetAbilityData() 
+    void InitStartingAbilities()
     {
-        return AbilityData;
+        for (auto InputAbilityBinding : Abilities)
+        {
+            CapComp.AddCapability(InputAbilityBinding.Value.AbilityCapabilityClass);
+        }
     }
+
+    void AddAbility(FName Slot, UAbilityData NewAbilityData)
+    {
+        if (!IsValid(NewAbilityData))
+            return;
+
+        // Remove existing ability in this slot before adding the new one
+        if (Abilities.Contains(Slot))
+        {
+            RemoveAbility(Slot);
+        }
+
+        // Assign new ability
+        Abilities.Add(Slot, NewAbilityData);
+
+        // Add the associated capability
+        CapComp.AddCapability(NewAbilityData.AbilityCapabilityClass);
+    }
+
+    void RemoveAbility(FName Slot)
+    {
+        if (!Abilities.Contains(Slot))
+            return;
+
+        TSubclassOf<UAbilityCapability> CapabilityClass = Abilities[Slot].AbilityCapabilityClass;
+
+        // Remove ability from slot
+        Abilities.Remove(Slot);
+
+        // Remove the associated capability if no other active Ability uses it
+        for (auto InputAbilityBinding : Abilities)
+        {
+            if (InputAbilityBinding.Value.AbilityCapabilityClass == CapabilityClass)
+            {
+                return;
+            }
+        }
+        CapComp.RemoveCapability(Abilities[Slot].AbilityCapabilityClass);
+
+    }
+
+    void UpdateActiveAbilities()
+    {
+        ActiveAbilities.Empty();
+
+        for (auto InputAbilityBinding : Abilities)
+        {
+            FName InputAction = InputAbilityBinding.Key;
+            UAbilityData AbilityData = InputAbilityBinding.Value;
+
+            if (IsValid(AbilityData) && CapComp.GetActionStatus(InputAction))
+            {
+                // Store the ability data under its capability type
+                ActiveAbilities.Add(AbilityData);
+            }
+        }
+    }
+
+    bool IsAbilityActive(UAbilityCapability Capability)
+    {
+        for (auto ActiveAbility : ActiveAbilities)
+        {
+            if (Capability.IsA(ActiveAbility.AbilityCapabilityClass))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    UAbilityData GetAbilityData(UAbilityCapability Capability)
+    {
+        for (auto ActiveAbility : ActiveAbilities)
+        {
+            if (Capability.IsA(ActiveAbility.AbilityCapabilityClass))
+            {
+                return ActiveAbility;
+            }
+        }
+
+        return nullptr;
+    }
+    
+
+
+    // FVector GetAttackSocketLocation() property
+    // {
+    //     return HomseOwner.Mesh.GetSocketLocation(AttackSocket);
+    // }
+
 };

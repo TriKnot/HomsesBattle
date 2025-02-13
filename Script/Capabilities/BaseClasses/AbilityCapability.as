@@ -2,6 +2,8 @@ class UAbilityCapability : UCapability
 {
     default Priority = ECapabilityPriority::PostInput;
 
+    FName Slot;
+
     // Components
     AHomseCharacterBase HomseOwner;
     UCapabilityComponent CapComp;

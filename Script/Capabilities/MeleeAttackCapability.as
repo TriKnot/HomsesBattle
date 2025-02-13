@@ -3,6 +3,7 @@ class UMeleeAttackCapability : UAbilityCapability
     default Priority = ECapabilityPriority::PostInput;
 
     USphereComponent HitSphere;
+    UMeleeAttackData MeleeAbilityData;
 
     float DamageAmount = 10.0f;
     float ActiveDuration = 0.1f;
@@ -31,7 +32,6 @@ class UMeleeAttackCapability : UAbilityCapability
         HitSphere.CollisionResponseToAllChannels = ECollisionResponse::ECR_Ignore;
         HitSphere.SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
         HitSphere.SetSphereRadius(50.0f);
-        HitSphere.AttachToComponent(HomseOwner.Mesh, HomseOwner.AbilityComponent.AttackSocket);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -43,7 +43,7 @@ class UMeleeAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return CapComp.GetActionStatus(InputActions::PrimaryAttack);
+        return AbilityComp.IsAbilityActive(this);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -56,7 +56,12 @@ class UMeleeAttackCapability : UAbilityCapability
     void OnActivate()
     {
         Super::OnActivate();
+
+        MeleeAbilityData = Cast<UMeleeAttackData>(AbilityComp.GetAbilityData(this));
+
         HitActors.Empty();
+        
+        HitSphere.AttachToComponent(HomseOwner.Mesh, MeleeAbilityData.Socket);
 
         if(MoveComp.IsGrounded)
             AbilityHelpers::RotateActorToCameraRotation(HomseOwner);
