@@ -8,7 +8,7 @@ class URangedAttackCapability : UAbilityCapability
     URangedAttackData RangedAbilityData;
     UTrajectoryVisualization TrajectoryVisualization;
 
-
+    FVector InitialVelocity;
     float ChargeTime = 0.0f;
     float ChargeRatio;
     bool bIsCharging = false;
@@ -84,7 +84,7 @@ class URangedAttackCapability : UAbilityCapability
         }
 
         float VelocityMultiplier = Math::Lerp(RangedAbilityData.InitialVelocityMultiplier, RangedAbilityData.MaxVelocityMultiplier, ChargeRatio);
-        AbilityComp.InitialVelocity = CalculateInitialVelocity(VelocityMultiplier);
+        InitialVelocity = CalculateInitialVelocity(VelocityMultiplier);
 
         if(RangedAbilityData.DisplayTrajectory)
         {
@@ -95,7 +95,7 @@ class URangedAttackCapability : UAbilityCapability
         {    
             if(RangedAbilityData.DisplayTrajectory)
             {
-                TrajectoryVisualization.Simulate(HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket), AbilityComp.InitialVelocity);
+                TrajectoryVisualization.Simulate(HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket), InitialVelocity);
             }
             return;        
         }    
@@ -122,7 +122,7 @@ class URangedAttackCapability : UAbilityCapability
         {
             TArray<AActor> ActorsToIgnore;
             ActorsToIgnore.Add(Owner);
-            Projectile.Init(Owner, AbilityComp.InitialVelocity, ActorsToIgnore, RangedAbilityData.ProjectileData);
+            Projectile.Init(Owner, InitialVelocity, ActorsToIgnore, RangedAbilityData.ProjectileData);
             FinishSpawningActor(Projectile);
             Projectile.SetActorScale3D(RangedAbilityData.ProjectileData.Scale);
         }

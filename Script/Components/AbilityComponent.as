@@ -14,14 +14,6 @@ class UAbilityComponent : UActorComponent
     AHomseCharacterBase HomseOwner;
     UCapabilityComponent CapComp;
 
-
-    // Temporary fields -> TODO: Find a better place for these---------------------------------------------------------
-
-    // Ability state tracking
-    FVector InitialVelocity;
-
-    // ----------------------------------------------------------------------------------------------------------------
-    
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
@@ -96,7 +88,6 @@ class UAbilityComponent : UActorComponent
             }
         }
         CapComp.RemoveCapability(Abilities[Slot].AbilityCapabilityClass);
-
     }
 
     void UpdateActiveAbilities()
