@@ -1,12 +1,8 @@
-class UAbilityComponent : UActorComponent
+class UAbilityComponent : ULockableComponent
 {    
     // Store assigned abilities by slot
     UPROPERTY()
     TMap<FName, UAbilityData> Abilities;    
-
-    UPROPERTY()
-    UAbilityData TestSwitchAbility;
-    bool bIsSwitchAbilityActive = false;
 
     // Store active abilities by capability class
     TArray<UAbilityData> ActiveAbilities;
@@ -34,13 +30,6 @@ class UAbilityComponent : UActorComponent
     void Tick(float DeltaSeconds)
     {
         UpdateActiveAbilities();
-
-        if(CapComp.GetActionStatus(InputActions::Test) && !bIsSwitchAbilityActive)
-        {
-            AddAbility(InputActions::PrimaryAttack, TestSwitchAbility);
-            Print("Added TestSwitchAbility");
-            bIsSwitchAbilityActive = true;
-        }
     }
 
     void InitStartingAbilities()
