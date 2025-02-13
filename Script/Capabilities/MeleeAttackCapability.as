@@ -136,7 +136,7 @@ class UMeleeAttackCapability : UAbilityCapability
             MeleeAbilityData.DashStrength, 
             MeleeAbilityData.ActiveDuration, 
             false, 
-            MoveComp.DashCurve, 
+            nullptr, 
             true, 
             ERootMotionFinishVelocityMode::ClampVelocity, 
             FVector::ZeroVector, 

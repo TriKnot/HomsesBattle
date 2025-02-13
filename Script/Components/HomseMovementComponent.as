@@ -21,9 +21,6 @@ class UHomseMovementComponent : ULockableComponent
     UPROPERTY()
     UCharacterMovementComponent CharacterMovement;
 
-    UPROPERTY()
-    UCurveFloat DashCurve;
-
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {

@@ -1,6 +1,6 @@
 class ULockableComponent : UActorComponent
 {
-    UPROPERTY()
+    UPROPERTY(NotVisible)
     bool bIsLocked;
 
     UFUNCTION(BlueprintEvent)
