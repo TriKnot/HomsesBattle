@@ -6,8 +6,8 @@ class UAbilityData : UDataAsset
 
     // Common ability properties
     UPROPERTY()
-    float CooldownTime = 0.2f;
+    float CooldownTime;
 
     UPROPERTY()
-    bool bCanBeCharged = false;
+    bool bCanBeCharged;
 };

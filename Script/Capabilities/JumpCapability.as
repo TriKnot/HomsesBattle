@@ -1,20 +1,11 @@
-class UJumpCapability : UCapability
+class UJumpCapability : UAbilityCapability
 {
     default Priority = ECapabilityPriority::PreMovement;
 
-    AHomseCharacterBase HomseOwner;
-    UHomseMovementComponent MoveComp;
-    UCapabilityComponent CapabilityComp;
+    UJumpAbilityData JumpAbilityData;
 
     bool bJumpHasStarted = false;
 
-    UFUNCTION(BlueprintOverride)
-    void Setup()
-    {
-        HomseOwner = Cast<AHomseCharacterBase>(Owner);
-        MoveComp = HomseOwner.HomseMovementComponent;
-        CapabilityComp = HomseOwner.CapabilityComponent;
-    }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
@@ -25,7 +16,7 @@ class UJumpCapability : UCapability
         if(!MoveComp.IsGrounded)
             return false;
 
-        if(CapabilityComp.GetActionStatus(InputActions::Jump))
+        if(AbilityComp.IsAbilityActive(this))
             return true;
 
         return false;
@@ -40,11 +31,13 @@ class UJumpCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
+        Super::OnActivate();
         MoveComp.bIsJumping = true;
+        JumpAbilityData = Cast<UJumpAbilityData>(AbilityComp.GetAbilityData(this));
 
         // Apply upward force for jumping
         FVector NewVelocity = MoveComp.Velocity;
-        NewVelocity.Z = MoveComp.JumpForce;
+        NewVelocity.Z = JumpAbilityData.JumpForce;
         MoveComp.SetVelocity(NewVelocity);
         MoveComp.SetMovementMode(EMovementMode::MOVE_Falling);
     }
