@@ -67,6 +67,8 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
+        MoveComp.SetOrientToMovement(!AbilityComp.IsAbilityActive(this));
+
         if (bIsOnCooldown)
         {
             UpdateCooldown(DeltaTime);
@@ -83,7 +85,6 @@ class URangedAttackCapability : UAbilityCapability
                 bIsCharging = true;
                 ChargeRatio = HandleCharging(DeltaTime);
             }
-            MoveComp.SetOrientToMovement(false);
         }
 
         float VelocityMultiplier = Math::Lerp(RangedAbilityData.InitialVelocityMultiplier, RangedAbilityData.MaxVelocityMultiplier, ChargeRatio);
