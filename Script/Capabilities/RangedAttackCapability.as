@@ -1,5 +1,7 @@
 class URangedAttackCapability : UAbilityCapability
 {
+    default Priority = ECapabilityPriority::PostInput;
+
     // Components
     AController Controller;
     USplineComponent Spline;
@@ -26,7 +28,7 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return AbilityComp.IsAbilityActive(this);
+        return !AbilityComp.bIsLocked && AbilityComp.IsAbilityActive(this);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -72,6 +74,7 @@ class URangedAttackCapability : UAbilityCapability
         }
 
         bIsCharging = false;
+        AbilityComp.Lock();
 
         if (AbilityComp.IsAbilityActive(this))
         {
@@ -103,6 +106,7 @@ class URangedAttackCapability : UAbilityCapability
         FireProjectile();
         bIsOnCooldown = true;
         bIsCharging = false;
+        AbilityComp.Unlock();
     }
 
     float HandleCharging(float DeltaTime)

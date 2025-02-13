@@ -53,10 +53,6 @@ class UHomseMovementComponent : ULockableComponent
 
     void AddMovementInput(FVector WorldDirection, float ScaleValue, bool bForce)
     {
-        if(bIsBlocked)
-        {
-            return;
-        }
         CharacterMovement.AddInputVector(WorldDirection * ScaleValue, bForce);
     }
 

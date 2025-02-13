@@ -15,7 +15,7 @@ class UDashCapability : UAbilityCapability
         if(!CapComp.GetActionStatus(InputActions::Dash))
             return false;
         
-        if(MoveComp.bIsBlocked)
+        if(MoveComp.bIsLocked)
             return false;
 
         if(CapComp.MovementInput.IsNearlyZero())

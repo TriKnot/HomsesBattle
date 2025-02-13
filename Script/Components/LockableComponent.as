@@ -1,17 +1,17 @@
 class ULockableComponent : UActorComponent
 {
     UPROPERTY()
-    bool bIsBlocked;
+    bool bIsLocked;
 
     UFUNCTION(BlueprintEvent)
     void Lock()
     {
-        bIsBlocked = true;
+        bIsLocked = true;
     }
 
     UFUNCTION(BlueprintEvent)
     void Unlock()
     {
-        bIsBlocked = false;
+        bIsLocked = false;
     }
 }

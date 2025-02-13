@@ -19,7 +19,7 @@ class UJumpCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        if (MoveComp.bIsBlocked)
+        if (MoveComp.bIsLocked)
             return false;
 
         if(!MoveComp.IsGrounded)
