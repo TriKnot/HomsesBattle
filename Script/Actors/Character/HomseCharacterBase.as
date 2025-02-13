@@ -33,7 +33,6 @@ class AHomseCharacterBase : ACharacter
     default SnoutCapsuleComponent.CapsuleRadius = 22.0f;
     default SnoutCapsuleComponent.CapsuleHalfHeight = 85.0f;
 
-    default CapabilityComponent.CapabilitiesTypes.Add(UJumpCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UDeathCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UDamageHandlerCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UDashCapability::StaticClass());
