@@ -34,5 +34,40 @@ class UPlayerCameraCapability : UCapability
     {
         HomseOwner.AddControllerYawInput(CapabilityComponent.MouseDelta.X);
         HomseOwner.AddControllerPitchInput(-CapabilityComponent.MouseDelta.Y);
+
+        UpdateCameraOffset(DeltaTime);
+    }
+
+    void UpdateCameraOffset(float DeltaTime)
+    {
+        FVector TotalOffset;
+
+        // Tick Active forwards
+        for (auto& Pair : CameraComp.ActiveOffsets)
+        {
+            FCameraOffsetTarget& Offset = Pair.Value;
+
+            FVector OffsetContribution = Offset.GetDeltaOffset(DeltaTime);
+            TotalOffset += OffsetContribution;
+        }
+
+        // Tick Reverting backwards
+        TArray<UObject> RevertingKeys;
+        CameraComp.RevertingOffsets.GetKeys(RevertingKeys);
+        for (UObject Key : RevertingKeys)
+        {
+            FCameraOffsetTarget& Offset = CameraComp.RevertingOffsets[Key];
+            TotalOffset += Offset.GetDeltaOffsetReverse(DeltaTime);
+
+            // Remove pair from original map if fully reverted
+            if (Offset.IsReverted())
+            {
+                CameraComp.RevertingOffsets.Remove(Key);
+            }
+        }
+
+        FVector CurrentOffset = CameraComp.GetCameraOffset();
+        FVector NewOffset = Math::VInterpTo(CurrentOffset, TotalOffset, DeltaTime, 10.0f);
+        CameraComp.AddCameraOffset(TotalOffset);
     }
 };
