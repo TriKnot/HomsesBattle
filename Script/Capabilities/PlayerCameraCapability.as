@@ -4,29 +4,48 @@ class UPlayerCameraCapability : UCapability
 
     AHomseCharacterBase HomseOwner;
     UCapabilityComponent CapabilityComponent;
+    UPlayerCameraComponent CameraComp;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
         HomseOwner = Cast<AHomseCharacterBase>(Owner);
         CapabilityComponent = HomseOwner.CapabilityComponent;
-    }
+        APlayerController PlayerController = Cast<APlayerController>(HomseOwner.Controller);
 
-    UFUNCTION(BlueprintOverride)
-    void Teardown()
-    {
+        CameraComp = Cast<UPlayerCameraComponent>(UPlayerCameraComponent::GetOrCreate(HomseOwner));
+
+        CameraComp.SpringArmComp = USpringArmComponent::Create(HomseOwner);
+        CameraComp.SpringArmComp.AttachToComponent(HomseOwner.RootComponent);
+        CameraComp.SpringArmComp.TargetArmLength = 650.0f;
+        CameraComp.SpringArmComp.bUsePawnControlRotation = true;
+        CameraComp.SpringArmComp.ProbeSize = 12.0f;
+        CameraComp.SpringArmComp.bDoCollisionTest = true;
+        CameraComp.SpringArmComp.bEnableCameraLag = false;
+
+        CameraComp.CameraComp = UCameraComponent::Create(HomseOwner);
+        CameraComp.CameraComp.AttachToComponent(CameraComp.SpringArmComp);
+        CameraComp.CameraComp.ProjectionMode = ECameraProjectionMode::Perspective;
+        CameraComp.CameraComp.FieldOfView = 90.0f;
+
+        CameraComp.CameraShakeComp = UCameraShakeComponent::Create(HomseOwner);
+
+        if (PlayerController != nullptr)
+        {
+            PlayerController.SetViewTargetWithBlend(HomseOwner);
+        }
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return CapabilityComponent.MouseDelta != FVector2D::ZeroVector;
+        return true; 
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return CapabilityComponent.MouseDelta == FVector2D::ZeroVector;
+        return false; 
     }
 
     UFUNCTION(BlueprintOverride)
