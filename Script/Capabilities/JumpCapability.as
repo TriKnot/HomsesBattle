@@ -3,9 +3,7 @@ class UJumpCapability : UAbilityCapability
     default Priority = ECapabilityPriority::PreMovement;
 
     UJumpAbilityData JumpAbilityData;
-
     bool bJumpHasStarted = false;
-
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
