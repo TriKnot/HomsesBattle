@@ -23,6 +23,12 @@ class URangedAttackData : UAbilityData
     UPROPERTY()
     bool ChargedShot = false;
 
+    UPROPERTY(Category = "Camera")
+    FVector CameraOffset;
+
+    UPROPERTY(Category = "Camera")
+    float CameraLerpTime;
+
     UPROPERTY()
     FName Socket = n"AttackSocket";
 

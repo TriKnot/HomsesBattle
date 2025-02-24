@@ -5,12 +5,15 @@ class URangedAttackCapability : UAbilityCapability
     // Components
     AController Controller;
     USplineComponent Spline;
+    UPlayerCameraComponent CameraComp;
     TArray<USplineMeshComponent> SplineMeshes;
 
     URangedAttackData RangedAbilityData;
     UTrajectoryVisualization TrajectoryVisualization;
 
     FVector InitialVelocity;
+    FVector CameraOffset;
+    float CameraLerpT;
     float ChargeTime = 0.0f;
     float ChargeRatio;
     bool bIsCharging = false;
@@ -53,6 +56,8 @@ class URangedAttackCapability : UAbilityCapability
             if(IsValid(TrajectoryVisualization))
                 TrajectoryVisualization.Init(RangedAbilityData, Owner);
         }
+
+        CameraComp = Cast<UPlayerCameraComponent>(HomseOwner.GetComponent(UPlayerCameraComponent::StaticClass()));
     }
 
     UFUNCTION(BlueprintOverride)
@@ -68,6 +73,19 @@ class URangedAttackCapability : UAbilityCapability
     void TickActive(float DeltaTime)
     {
         MoveComp.SetOrientToMovement(!AbilityComp.IsAbilityActive(this));
+        bool bActive = AbilityComp.IsAbilityActive(this);
+
+        if(IsValid(CameraComp))
+        {
+            if(bActive)
+            {
+                CameraComp.RegisterOffset(this, RangedAbilityData.CameraOffset, RangedAbilityData.CameraLerpTime);
+            }
+            else
+            {
+                CameraComp.UnregisterOffset(this);
+            }
+        }
 
         if (bIsOnCooldown)
         {
@@ -78,7 +96,7 @@ class URangedAttackCapability : UAbilityCapability
         bIsCharging = false;
         AbilityComp.Lock();
 
-        if (AbilityComp.IsAbilityActive(this))
+        if (bActive)
         {
             if(RangedAbilityData.ChargedShot)
             {
