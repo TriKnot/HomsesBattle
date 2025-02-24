@@ -2,6 +2,7 @@ class UDashCapability : UAbilityCapability
 {
     default Priority = ECapabilityPriority::PreMovement;
 
+    UPlayerCameraComponent CameraComp;
     UDashAbilityData DashData;
     UAsyncRootMovement AsyncRootMove;
 
@@ -63,6 +64,13 @@ class UDashCapability : UAbilityCapability
         AsyncRootMove.OnMovementFinished.AddUFunction(this, n"OnDashFinished");
 
         MoveComp.Lock();
+
+        CameraComp = Cast<UPlayerCameraComponent>(HomseOwner.GetComponent(UPlayerCameraComponent::StaticClass()));
+        if(IsValid(CameraComp))
+        {
+            FVector CameraOffset = FVector(MoveInput.Y * -DashData.CameraOffsetMultiplier.X, MoveInput.X * -DashData.CameraOffsetMultiplier.Y, 0);
+            CameraComp.RegisterOffset(this, CameraOffset, DashData.Duration / 2);
+        }
     }
 
     
@@ -77,6 +85,10 @@ class UDashCapability : UAbilityCapability
     {
         if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
         {
+            if(IsValid(CameraComp))
+            {
+                CameraComp.UnregisterOffset(this);
+            }
             UpdateCooldown(DeltaTime);
             return;   
         }

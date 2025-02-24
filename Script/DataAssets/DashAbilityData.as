@@ -8,4 +8,7 @@ class UDashAbilityData : UAbilityData
 
     UPROPERTY()
     UCurveFloat DashCurve;
+
+    UPROPERTY()
+    FVector2D CameraOffsetMultiplier;
 }
