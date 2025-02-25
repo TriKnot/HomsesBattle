@@ -54,7 +54,10 @@ class UPlayerCameraCapability : UCapability
         HomseOwner.AddControllerYawInput(CapabilityComponent.MouseDelta.X);
         HomseOwner.AddControllerPitchInput(-CapabilityComponent.MouseDelta.Y);
 
-        UpdateCameraOffset(DeltaTime);
+        if(CameraComp.ActiveOffsets.Num() > 0 || CameraComp.RevertingOffsets.Num() > 0)
+        {
+            UpdateCameraOffset(DeltaTime);
+        }
     }
 
     void UpdateCameraOffset(float DeltaTime)
@@ -85,8 +88,6 @@ class UPlayerCameraCapability : UCapability
             }
         }
 
-        FVector CurrentOffset = CameraComp.GetCameraOffset();
-        FVector NewOffset = Math::VInterpTo(CurrentOffset, TotalOffset, DeltaTime, 10.0f);
         CameraComp.AddCameraOffset(TotalOffset);
     }
 };
