@@ -83,7 +83,7 @@ class UDashCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing)
+        if(!IsValid(AsyncRootMove) || !AsyncRootMove.IsActive())
         {
             if(IsValid(CameraComp))
             {
