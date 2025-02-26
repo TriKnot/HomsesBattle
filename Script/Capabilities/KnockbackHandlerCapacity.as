@@ -1,13 +1,15 @@
-class UKnockbackHandlerCapacity : UAbilityCapability
+class UKnockbackHandlerCapacity : UCapability
 {
     default Priority = ECapabilityPriority::Movement;
 
+    UHomseMovementComponent MoveComp;
     UHealthComponent HealthComp;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
-        Super::Setup();
+        AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(Owner);
+        MoveComp = HomseOwner.HomseMovementComponent;
         HealthComp = HomseOwner.HealthComponent;
     }
 
@@ -31,7 +33,6 @@ class UKnockbackHandlerCapacity : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
-        Super::OnActivate();
         for(FDamageData DamageInstance : HealthComp.DamageInstances)
         {
             for(UOnHitEffectData OnHitEffect : DamageInstance.OnHitEffects)
