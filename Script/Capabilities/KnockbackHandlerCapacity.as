@@ -1,6 +1,6 @@
 class UKnockbackHandlerCapacity : UCapability
 {
-    default Priority = ECapabilityPriority::Movement;
+    default Priority = ECapabilityPriority::PreMovement;
 
     UHomseMovementComponent MoveComp;
     UHealthComponent HealthComp;
