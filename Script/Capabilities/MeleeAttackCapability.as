@@ -92,7 +92,7 @@ class UMeleeAttackCapability : UAbilityCapability
     {
         
         // If dash is finished, update cooldown and return
-        if(!IsValid(AsyncRootMove) || AsyncRootMove.MovementState != ERootMotionState::Ongoing) 
+        if(!IsValid(AsyncRootMove) || !AsyncRootMove.IsActive()) 
         {
             UpdateCooldown(DeltaTime);
             MoveComp.SetOrientToMovement(true);
@@ -106,7 +106,7 @@ class UMeleeAttackCapability : UAbilityCapability
     void OnHit(UPrimitiveComponent OverLappedComponent, AActor OtherActor, UPrimitiveComponent OtherComp, int OtherBodyIndex, bool bFromSweep, const FHitResult&in SweepResult)
     {
         UHealthComponent HitHealthComp = UHealthComponent::Get(OtherActor);
-        if(IsValid(HitHealthComp))
+        if(!IsValid(HitHealthComp))
             return;
         DealDamageToHealthComponent(HitHealthComp);
     }
@@ -117,12 +117,11 @@ class UMeleeAttackCapability : UAbilityCapability
         if(HitActor == Owner || HitActors.Contains(HitActor))
             return;
 
-        FDamageInstanceData DamageInstance;
-        DamageInstance.DamageAmount = MeleeAbilityData.DamageAmount;
-        DamageInstance.SourceActor = Owner;
-        DamageInstance.DamageLocation = HitSphere.GetWorldLocation();
-        DamageInstance.DamageDirection = HealthComp.Owner.GetActorLocation() - Owner.GetActorLocation();
-        HealthComp.DamageInstances.Add(DamageInstance);
+        FDamageData DamageInstance = MeleeAbilityData.DamageData;
+        DamageInstance.SetSourceActor(Owner);
+        DamageInstance.SetDamageLocation(HitSphere.GetWorldLocation());
+        HealthComp.AddDamageInstanceData(DamageInstance);
+        HitActors.AddUnique(HitActor);
     }
 
     void Dash(FVector DashDirection)

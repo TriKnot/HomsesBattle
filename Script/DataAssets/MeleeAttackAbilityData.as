@@ -2,7 +2,7 @@ class UMeleeAttackData : UAbilityData
 {
     // Damage settings
     UPROPERTY()
-    float DamageAmount = 10.0f;
+    FDamageData DamageData;
 
     UPROPERTY()
     float HitboxRadius = 50.0f;
