@@ -19,15 +19,15 @@ class UHomseMovementComponent : ULockableComponent
     bool bIsDashing = false;
 
     UPROPERTY()
-    UCharacterMovementComponent CharacterMovement;
+    private UCharacterMovementComponent CharacterMovementComponent;
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         AHomseCharacterBase HomseOwner = Cast<AHomseCharacterBase>(GetOwner());
-        CharacterMovement = HomseOwner.CharacterMovement;
-        CharacterMovement.bOrientRotationToMovement = true;
-        CharacterMovement.bUseControllerDesiredRotation = false;
+        CharacterMovementComponent = HomseOwner.CharacterMovement;
+        CharacterMovementComponent.bOrientRotationToMovement = true;
+        CharacterMovementComponent.bUseControllerDesiredRotation = false;
     }
 
     void SetMovementSpeed(EMovementSpeed Speed)
@@ -35,13 +35,13 @@ class UHomseMovementComponent : ULockableComponent
         switch (Speed)
         {
             case EMovementSpeed::EMS_Walk:
-                CharacterMovement.MaxWalkSpeed = WalkSpeed;
+                CharacterMovementComponent.MaxWalkSpeed = WalkSpeed;
                 break;
             case EMovementSpeed::EMS_Run:
-                CharacterMovement.MaxWalkSpeed = RunSpeed;
+                CharacterMovementComponent.MaxWalkSpeed = RunSpeed;
                 break;
             case EMovementSpeed::EMS_Sprint:
-                CharacterMovement.MaxWalkSpeed = SprintSpeed;
+                CharacterMovementComponent.MaxWalkSpeed = SprintSpeed;
                 break;
             default:
                 break;
@@ -50,45 +50,49 @@ class UHomseMovementComponent : ULockableComponent
 
     void AddMovementInput(FVector WorldDirection, float ScaleValue, bool bForce)
     {
-        CharacterMovement.AddInputVector(WorldDirection * ScaleValue, bForce);
+        CharacterMovementComponent.AddInputVector(WorldDirection * ScaleValue, bForce);
     }
 
     void SetVelocity(FVector NewVelocity)
     {
-        CharacterMovement.Velocity = NewVelocity;
+        CharacterMovementComponent.Velocity = NewVelocity;
     }
 
     void AddVelocity(FVector AddVelocity)
     {
-        CharacterMovement.Velocity += AddVelocity;
-    }
-
-    FVector GetVelocity() property
-    {
-        return CharacterMovement.Velocity;
+        CharacterMovementComponent.Velocity += AddVelocity;
     }
 
     void SetMovementMode(EMovementMode NewMovementMode) 
     {
-        CharacterMovement.MovementMode = NewMovementMode;
+        CharacterMovementComponent.MovementMode = NewMovementMode;
     }
 
-    EMovementMode GetMovementMode() property
+    FVector GetVelocity() const property
     {
-        return CharacterMovement.MovementMode;
+        return CharacterMovementComponent.Velocity;
     }
 
+    EMovementMode GetMovementMode() const property
+    {
+        return CharacterMovementComponent.MovementMode;
+    }
+
+    UCharacterMovementComponent GetCharacterMovement() const property
+    {
+        return CharacterMovementComponent;
+    }
 
     UFUNCTION(BlueprintCallable)
     bool GetIsGrounded() const property
     {
-        return CharacterMovement.IsMovingOnGround();
+        return CharacterMovementComponent.IsMovingOnGround();
     }
 
     void SetOrientToMovement(bool bOrientToMovement)
     {
-        CharacterMovement.bOrientRotationToMovement = bOrientToMovement;
-        CharacterMovement.bUseControllerDesiredRotation = !bOrientToMovement;
+        CharacterMovementComponent.bOrientRotationToMovement = bOrientToMovement;
+        CharacterMovementComponent.bUseControllerDesiredRotation = !bOrientToMovement;
     }
 
 }
