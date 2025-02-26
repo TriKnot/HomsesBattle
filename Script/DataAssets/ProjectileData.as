@@ -1,14 +1,14 @@
 class UProjectileData : UDataAsset
 {
-    UPROPERTY(Category = "Movement")
+    UPROPERTY()
     float GravityEffectMultiplier = 1.0f;
 
-    UPROPERTY(Category = "Damage")
+    UPROPERTY()
     FDamageData DamageData;
 
-    UPROPERTY(Category = "Visuals")
+    UPROPERTY()
     UStaticMesh ProjectileMesh;
 
-    UPROPERTY(Category = "Transform")
+    UPROPERTY()
     FVector Scale = FVector(1.0f, 1.0f, 1.0f);
 } 
