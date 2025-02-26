@@ -2,8 +2,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 
 
-UAsyncRootMovement* UAsyncRootMovement::ApplyConstantForce(UCharacterMovementComponent* MovementComponent, FVector WorldDirection, float Strength, float Duration, bool bIsAdditive,
-	UCurveFloat* StrengthOverTime, bool bEnableGravity, ERootMotionFinishVelocityMode FinishVelocityMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish)
+UAsyncRootMovement* UAsyncRootMovement::ApplyConstantForce(UCharacterMovementComponent* MovementComponent, const FVector& WorldDirection, const float Strength, const float Duration, const bool bIsAdditive,
+	UCurveFloat* StrengthOverTime, const bool bEnableGravity, const ERootMotionFinishVelocityMode FinishVelocityMode, const FVector& SetVelocityOnFinish, const float ClampVelocityOnFinish)
 {
     UAsyncRootMovement* RootMovement = NewObject<UAsyncRootMovement>();
 	if (!MovementComponent)
@@ -26,7 +26,7 @@ UAsyncRootMovement* UAsyncRootMovement::ApplyConstantForce(UCharacterMovementCom
 
 	TSharedPtr<FRootMotionSource_ConstantForce> ConstantForce = MakeShared<FRootMotionSource_ConstantForce>();
 	ConstantForce->Priority = 5; // TODO: Evaluate how to best set this
-	ConstantForce->Force = WorldDirection * Strength;
+	ConstantForce->Force = WorldDirection.GetSafeNormal() * Strength;
 	ConstantForce->Duration = Duration;
 	
 	ConstantForce->AccumulateMode = bIsAdditive ? ERootMotionAccumulateMode::Additive : ERootMotionAccumulateMode::Override;
@@ -66,7 +66,14 @@ UAsyncRootMovement* UAsyncRootMovement::ApplyConstantForce(UCharacterMovementCom
 void UAsyncRootMovement::Cancel()
 {
     Super::Cancel();
- 
+
+	if (MovementState == ERootMotionState::Ongoing)
+	{
+		MovementState = ERootMotionState::Cancelled;
+	}
+	
+	SetReadyToDestroy();
+	 
     if (!OngoingDelay.IsValid())
     {
     	return;
@@ -82,9 +89,9 @@ void UAsyncRootMovement::Cancel()
 
     FTimerManager& TimerManager = World->GetTimerManager();
     TimerManager.ClearTimer(OngoingDelay);
+}
 
-    if (MovementState == ERootMotionState::Ongoing)
-	{
-		MovementState = ERootMotionState::Cancelled;
-	}
+bool UAsyncRootMovement::IsActive() const
+{
+	return Super::IsActive() && MovementState == ERootMotionState::Ongoing;
 }

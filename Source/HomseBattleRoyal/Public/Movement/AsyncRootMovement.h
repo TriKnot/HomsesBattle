@@ -47,18 +47,20 @@ public:
 	UFUNCTION(ScriptCallable, Category = "RootMovement")
 	static UAsyncRootMovement* ApplyConstantForce(
 		UCharacterMovementComponent* MovementComponent,
-		FVector WorldDirection,
-		float Strength,
-		float Duration,  
-		bool bIsAdditive = false,  
+		const FVector& WorldDirection,
+		const float Strength,
+		const float Duration,  
+		const bool bIsAdditive = false,  
 		UCurveFloat* StrengthOverTime = nullptr,  
-		bool bEnableGravity = false,  
-		ERootMotionFinishVelocityMode FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity,  
-		FVector SetVelocityOnFinish = FVector::ZeroVector,  
-		float ClampVelocityOnFinish = 0.0f  
+		const bool bEnableGravity = false,  
+		const ERootMotionFinishVelocityMode FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity,
+		const FVector& SetVelocityOnFinish = FVector::ZeroVector,  
+		const float ClampVelocityOnFinish = 0.0f
 	);
 	
 	virtual void Cancel() override;
+
+	virtual bool IsActive() const override;
 
 	virtual UWorld* GetWorld() const override
 	{
