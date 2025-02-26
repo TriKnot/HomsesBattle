@@ -9,11 +9,29 @@ class UHealthComponent : ULockableComponent
     UPROPERTY()
     bool bIsInvulnerable = false;
 
-    TArray<FDamageInstanceData> DamageInstances;
+    private TArray<FDamageData> DamageInstancesArray;
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         CurrentHealth = MaxHealth;
     }
+
+    TArray<FDamageData> GetDamageInstances() const property
+    {
+        return DamageInstancesArray;
+    }
+
+    void AddDamageInstanceData(FDamageData DamageInstance)
+    {
+        if(bIsInvulnerable || CurrentHealth <= 0.0f)
+            return;
+        DamageInstancesArray.Add(DamageInstance);
+    }
+
+    void RemoveDamageInstance(const FDamageData& DamageInstance)
+    {
+        DamageInstancesArray.Remove(DamageInstance);
+    }
+
 };

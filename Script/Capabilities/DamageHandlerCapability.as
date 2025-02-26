@@ -36,8 +36,8 @@ class UDamageHandlerCapability : UCapability
 
         while(!HealthComp.DamageInstances.IsEmpty())
         {
-            FDamageInstanceData DamageInstance = HealthComp.DamageInstances[0];
-            HealthComp.DamageInstances.RemoveAt(0);
+            FDamageData DamageInstance = HealthComp.DamageInstances[0];
+            HealthComp.RemoveDamageInstance(DamageInstance);
 
             HealthComp.CurrentHealth -= DamageInstance.DamageAmount;
             if(HealthComp.CurrentHealth <= 0.0f)

@@ -62,12 +62,11 @@ class AProjectileActor : AActor
         UHealthComponent HealthComp = Cast<UHealthComponent>(HitActor.GetComponentByClass(UHealthComponent::StaticClass()));
         if(HealthComp != nullptr)
         {
-            FDamageInstanceData DamageInstance;
-            DamageInstance.DamageAmount = Data.Damage;
-            DamageInstance.DamageDirection = ProjectileVelocity.GetSafeNormal();
-            DamageInstance.SourceActor = SourceActor;
-            DamageInstance.DamageLocation = GetActorLocation();
-            HealthComp.DamageInstances.Add(DamageInstance);
+            FDamageData DamageInstance = Data.DamageData;
+            DamageInstance.SetSourceActor(this);
+            DamageInstance.SetDamageLocation(HitActor.ActorLocation);
+
+            HealthComp.AddDamageInstanceData(DamageInstance);
         }
     }
 
