@@ -1,6 +1,7 @@
 class UTrajectoryVisualization : UObject
 {
     URangedAttackData AttackData;
+    float GravityMult = 1.0f;
     USplineComponent TrajectorySpline;
     TArray<USplineMeshComponent> SplineMeshes;
     AActor Owner;
@@ -8,6 +9,7 @@ class UTrajectoryVisualization : UObject
     void Init(URangedAttackData Data, AActor OwningActor)
     {
         AttackData = Data;
+        GravityMult = GetGravityData(Data);
         Owner = OwningActor;
         TrajectorySpline = USplineComponent::Create(Owner);
         TrajectorySpline.AttachToComponent(Owner.RootComponent);
@@ -41,10 +43,10 @@ class UTrajectoryVisualization : UObject
         TArray<FVector> Points = GetSimulatedTrajectoryPoints(
             StartLocation, 
             InitialVelocity, 
-            AttackData.ProjectileData.GravityEffectMultiplier,
+            GravityMult,
             1.0f, 
             0.01f);
-        DrawSimulatedTrajectory(Points, AttackData.ProjectileData);
+        DrawSimulatedTrajectory(Points);
     }
 
 
@@ -65,7 +67,7 @@ class UTrajectoryVisualization : UObject
         return Points;
     }
 
-    void DrawSimulatedTrajectory(const TArray<FVector>& Points, UProjectileData Data)
+    void DrawSimulatedTrajectory(const TArray<FVector>& Points)
     {
         USplineComponent Spline = TrajectorySpline;
         Spline.ClearSplinePoints();
@@ -96,6 +98,19 @@ class UTrajectoryVisualization : UObject
 
             SplineMeshes.Add(SplineMesh);
         }
+    }
+
+    float GetGravityData(URangedAttackData Data)
+    {
+        for(UProjectileDataComponent DataComp : Data.ProjectileData.Components)
+        {
+            if(DataComp.IsA(UProjectileGravityData::StaticClass()))
+            {
+                return Cast<UProjectileGravityData>(DataComp).GravityEffectMultiplier;
+                
+            }
+        }
+        return 1.0f;
     }
 
 

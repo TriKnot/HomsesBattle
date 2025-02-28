@@ -3,7 +3,9 @@ class AProjectileActor : AActor
     UPROPERTY(DefaultComponent, RootComponent)
     UStaticMeshComponent Root;
 
-    UProjectileData Data;
+    UProjectileGravityData GravityData;
+    UProjectileDamageData DamageDataAsset;
+    UProjectileMeshData MeshDataAsset;
     FVector ProjectileVelocity;
     AActor SourceActor;
     TArray<AActor> IgnoredActors;
@@ -12,26 +14,54 @@ class AProjectileActor : AActor
     default Root.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
     default Root.SetGenerateOverlapEvents(true);
 
-    UFUNCTION(BlueprintEvent)
-    void Init(AActor Source, FVector InitialVelocity, TArray<AActor> ActorsToIgnore, UProjectileData ProjectileData)
-    {
-        SourceActor = Source;
-        ProjectileVelocity = InitialVelocity;
-        IgnoredActors = ActorsToIgnore;
-        Data = ProjectileData;
-        Root.SetStaticMesh(Data.ProjectileMesh);
-    }
-
     UFUNCTION(BlueprintOverride)
     void Tick(float DeltaSeconds)
     {
         Move(DeltaSeconds);
     }
 
+    void SetGravityData(UProjectileGravityData InGravityData)
+    {
+        GravityData = InGravityData;
+    }
+
+    void SetDamageData(UProjectileDamageData InDamageData)
+    {
+        DamageDataAsset = InDamageData;
+    }
+
+    void SetMeshData(UProjectileMeshData InMeshData)
+    {
+        MeshDataAsset = InMeshData;
+        if (IsValid(MeshDataAsset) && IsValid(MeshDataAsset.ProjectileMesh))
+        {
+            Root.SetStaticMesh(MeshDataAsset.ProjectileMesh);
+            SetActorScale3D(MeshDataAsset.Scale);
+        }
+    }
+
+    void SetSourceActor(AActor InSource)
+    {
+        SourceActor = InSource;
+    }
+
+    void SetInitialVelocity(const FVector& InVelocity)
+    {
+        ProjectileVelocity = InVelocity;
+    }
+
+    void SetIgnoredActors(const TArray<AActor>& InIgnoredActors)
+    {
+        IgnoredActors = InIgnoredActors;
+    }
+
+
     UFUNCTION(BlueprintEvent)
     void Move(float DeltaSeconds) 
     {
-        ProjectileVelocity.Z -= PhysicStatics::Gravity * Data.GravityEffectMultiplier * DeltaSeconds;
+        if(IsValid(GravityData))
+            ProjectileVelocity.Z -= PhysicStatics::Gravity * GravityData.GravityEffectMultiplier * DeltaSeconds;
+        
         FVector NewLocation = ActorLocation + (ProjectileVelocity * DeltaSeconds);
 
         // Basic movement for non-tracking projectiles
@@ -62,7 +92,7 @@ class AProjectileActor : AActor
         UHealthComponent HealthComp = Cast<UHealthComponent>(HitActor.GetComponentByClass(UHealthComponent::StaticClass()));
         if(HealthComp != nullptr)
         {
-            FDamageData DamageInstance = Data.DamageData;
+            FDamageData DamageInstance = DamageDataAsset.DamageData;
             DamageInstance.SetSourceActor(this);
             DamageInstance.SetDamageLocation(HitActor.ActorLocation);
 

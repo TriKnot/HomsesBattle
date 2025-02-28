@@ -31,13 +31,13 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return !AbilityComp.bIsLocked && AbilityComp.IsAbilityActive(this);
+        return !AbilityComp.IsLocked() && AbilityComp.IsAbilityActive(this);
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return !bIsOnCooldown && !bIsCharging;
+        return (!bIsOnCooldown && !bIsCharging) || AbilityComp.IsLocked(this);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -63,6 +63,13 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     void OnDeactivate()
     {
+        if(bIsCharging)
+        {
+            bIsCharging = false;
+            AbilityComp.Unlock(this);
+            TrajectoryVisualization.ClearSimulatedTrajectory();
+        }
+
         Super::OnDeactivate();
         ChargeTime = 0.0f;
         bIsCharging = false;
@@ -94,7 +101,7 @@ class URangedAttackCapability : UAbilityCapability
         }
 
         bIsCharging = false;
-        AbilityComp.Lock();
+        AbilityComp.Lock(this);
 
         if (bActive)
         {
@@ -111,21 +118,21 @@ class URangedAttackCapability : UAbilityCapability
         if(RangedAbilityData.DisplayTrajectory)
         {
             TrajectoryVisualization.ClearSimulatedTrajectory();
+            if(bIsCharging)
+            {
+                TrajectoryVisualization.Simulate(HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket), InitialVelocity);
+            }
         }
 
         if(RangedAbilityData.ChargedShot && bIsCharging)
         {    
-            if(RangedAbilityData.DisplayTrajectory)
-            {
-                TrajectoryVisualization.Simulate(HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket), InitialVelocity);
-            }
             return;        
         }    
 
         FireProjectile();
         bIsOnCooldown = true;
         bIsCharging = false;
-        AbilityComp.Unlock();
+        AbilityComp.Unlock(this);
     }
 
     float HandleCharging(float DeltaTime)
@@ -138,17 +145,12 @@ class URangedAttackCapability : UAbilityCapability
     void FireProjectile()
     {
         FVector SocketLocation = HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket);
-        AProjectileActor Projectile = Cast<AProjectileActor>(SpawnActor( AProjectileActor::StaticClass(), SocketLocation,
-                FRotator::ZeroRotator, n"Projectile", true)); 
-        
-        if (Projectile != nullptr)
-        {
-            TArray<AActor> ActorsToIgnore;
-            ActorsToIgnore.Add(Owner);
-            Projectile.Init(Owner, InitialVelocity, ActorsToIgnore, RangedAbilityData.ProjectileData);
-            FinishSpawningActor(Projectile);
-            Projectile.SetActorScale3D(RangedAbilityData.ProjectileData.Scale);
-        }
+        AProjectileActor Projectile = UProjectileBuilder()
+            .WithProjectileData(RangedAbilityData.ProjectileData)
+            .WithSourceActor(Owner)
+            .WithInitialVelocity(InitialVelocity)
+            .WithStartingLocation(SocketLocation)
+            .Build();
     }
 
     FVector CalculateInitialVelocity(float VelocityMultiplier)
