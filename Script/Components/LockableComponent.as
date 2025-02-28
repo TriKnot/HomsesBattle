@@ -1,17 +1,41 @@
 class ULockableComponent : UActorComponent
 {
-    UPROPERTY(NotVisible)
-    bool bIsLocked;
+    TArray<UObject> LockingSources;
 
-    UFUNCTION(BlueprintEvent)
-    void Lock()
+    UFUNCTION()
+    bool IsLocked(UObject IgnoredSource = nullptr) const
     {
-        bIsLocked = true;
+        for(UObject Source : LockingSources)
+        {
+            if(Source != IgnoredSource)
+                return true;
+        }
+        return false;
+    }
+
+    UFUNCTION()
+    bool IsLockedIgnoringAny(TArray<UObject> IgnoredSources = TArray<UObject>()) const
+    {
+        for(UObject Source : IgnoredSources)
+        {
+            if(!LockingSources.Contains(Source))
+                return true;
+        }
+        return false;
     }
 
     UFUNCTION(BlueprintEvent)
-    void Unlock()
+    void Lock(UObject Source)
     {
-        bIsLocked = false;
+        if(LockingSources.Contains(Source))
+            return;
+        LockingSources.Add(Source);
     }
+
+    UFUNCTION(BlueprintEvent)
+    void Unlock(UObject Source)
+    {
+        LockingSources.Remove(Source);
+    }
+
 }

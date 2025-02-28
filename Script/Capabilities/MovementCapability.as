@@ -17,13 +17,13 @@ class UMovementCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return !MoveComp.bIsLocked && !CapabilityComp.MovementInput.IsNearlyZero();
+        return !MoveComp.IsLocked() && !CapabilityComp.MovementInput.IsNearlyZero();
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return MoveComp.bIsLocked || CapabilityComp.MovementInput.IsNearlyZero();
+        return MoveComp.IsLocked() || CapabilityComp.MovementInput.IsNearlyZero();
     }
 
     UFUNCTION(BlueprintOverride)

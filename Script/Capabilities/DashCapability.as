@@ -11,7 +11,7 @@ class UDashCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        if(MoveComp.bIsLocked)
+        if(MoveComp.IsLocked())
             return false;
 
         if(!AbilityComp.IsAbilityActive(this))
@@ -63,7 +63,7 @@ class UDashCapability : UAbilityCapability
         AsyncRootMove.OnMovementFailed.AddUFunction(this, n"OnDashFinished");
         AsyncRootMove.OnMovementFinished.AddUFunction(this, n"OnDashFinished");
 
-        MoveComp.Lock();
+        MoveComp.Lock(this);
 
         CameraComp = Cast<UPlayerCameraComponent>(HomseOwner.GetComponent(UPlayerCameraComponent::StaticClass()));
         if(IsValid(CameraComp))
@@ -97,7 +97,7 @@ class UDashCapability : UAbilityCapability
     UFUNCTION()
     void OnDashFinished()
     {
-        MoveComp.Unlock();
+        MoveComp.Unlock(this);
         MoveComp.bIsDashing = false;
     }
 };

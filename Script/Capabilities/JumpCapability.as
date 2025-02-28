@@ -8,7 +8,7 @@ class UJumpCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        if (MoveComp.bIsLocked)
+        if (MoveComp.IsLocked())
             return false;
 
         if(!MoveComp.IsGrounded)

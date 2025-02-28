@@ -37,7 +37,7 @@ class UDeathCapability : UCapability
     {
         for(ULockableComponent LockableComponent : LockableComponents)
         {
-            LockableComponent.Lock();
+            LockableComponent.Lock(this);
         }
     }
 };

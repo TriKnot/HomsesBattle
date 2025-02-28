@@ -35,7 +35,7 @@ class UMeleeAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return !AbilityComp.bIsLocked && AbilityComp.IsAbilityActive(this);
+        return !AbilityComp.IsLocked() && AbilityComp.IsAbilityActive(this);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -83,8 +83,8 @@ class UMeleeAttackCapability : UAbilityCapability
 
         bIsOnCooldown = true;
 
-        MoveComp.Lock();
-        AbilityComp.Lock();
+        MoveComp.Lock(this);
+        AbilityComp.Lock(this);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -147,8 +147,8 @@ class UMeleeAttackCapability : UAbilityCapability
     UFUNCTION()
     void OnFinishedDashing()
     {
-        MoveComp.Unlock();
-        AbilityComp.Unlock();
+        MoveComp.Unlock(this);
+        AbilityComp.Unlock(this);
         AsyncRootMove = nullptr;
     }
 
