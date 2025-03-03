@@ -6,7 +6,8 @@ class UProjectileGravityData : UProjectileDataComponent
     UFUNCTION(BlueprintOverride)
     void ApplyData(AProjectileActor Projectile)
     {
-        Projectile.SetGravityData(this);
+        UProjectileMoveComponent::GetOrCreate(Projectile).GravityData = this;
+        Projectile.CapabilityComponent.AddCapability(UProjectileGravityEffectCapability::StaticClass());
     }
 
 }

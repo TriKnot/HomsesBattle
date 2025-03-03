@@ -145,11 +145,11 @@ class URangedAttackCapability : UAbilityCapability
     void FireProjectile()
     {
         FVector SocketLocation = HomseOwner.Mesh.GetSocketLocation(RangedAbilityData.Socket);
-        AProjectileActor Projectile = UProjectileBuilder()
-            .WithProjectileData(RangedAbilityData.ProjectileData)
+        UProjectileBuilder()
             .WithSourceActor(Owner)
             .WithInitialVelocity(InitialVelocity)
             .WithStartingLocation(SocketLocation)
+            .WithProjectileData(RangedAbilityData.ProjectileData)
             .Build();
     }
 

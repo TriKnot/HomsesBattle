@@ -30,19 +30,14 @@ class UProjectileBuilder
 
     UProjectileBuilder WithInitialVelocity(const FVector& InVelocity)
     {
-        Projectile.SetInitialVelocity(InVelocity);
+        Projectile.CapabilityComponent.AddCapability(UProjectileMovementCapability::StaticClass());
+        UProjectileMoveComponent::GetOrCreate(Projectile).ProjectileVelocity = InVelocity;
         return this;
     }
 
     UProjectileBuilder WithStartingLocation(const FVector& InLocation)
     {
         Projectile.SetActorLocation(InLocation);
-        return this;
-    }
-
-    UProjectileBuilder WithIgnoredActors(const TArray<AActor>& InIgnoredActors)
-    {
-        Projectile.SetIgnoredActors(InIgnoredActors);
         return this;
     }
 

@@ -6,6 +6,7 @@ class UProjectileDamageData : UProjectileDataComponent
     UFUNCTION(BlueprintOverride)
     void ApplyData(AProjectileActor Projectile)
     {
-        Projectile.SetDamageData(this);
+        Projectile.CapabilityComponent.AddCapability(UProjectileDamageCapability::StaticClass());
+        UProjectileDamageComponent::GetOrCreate(Projectile).DamageDataAsset = this;
     }
 }
