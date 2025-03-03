@@ -12,7 +12,7 @@ class UCapabilityComponent : UActorComponent
     access MouseDeltaProtection = protected, UPlayerInputComponent;
     access:MouseDeltaProtection FVector2D MouseInputDelta;
 
-    TArray<TSubclassOf<UCapability>> AddCapabiliyQueue;
+    TArray<TSubclassOf<UCapability>> AddCapabilityQueue;
     TArray<TSubclassOf<UCapability>> RemoveCapabilityQueue;
 
     bool bShouldInitialize = true;
@@ -74,12 +74,12 @@ class UCapabilityComponent : UActorComponent
         }
 
         // Check if the capability is already in the queue to be added
-        if (AddCapabiliyQueue.Contains(CapabilityType))
+        if (AddCapabilityQueue.Contains(CapabilityType))
         {
             return false;
         }
 
-        AddCapabiliyQueue.Add(CapabilityType);
+        AddCapabilityQueue.Add(CapabilityType);
 
         return true;
     }
@@ -113,10 +113,10 @@ class UCapabilityComponent : UActorComponent
 
     private void ProcessAddCapabilityQueue()
     {
-        while (!AddCapabiliyQueue.IsEmpty())
+        while (!AddCapabilityQueue.IsEmpty())
         {
-            TSubclassOf<UCapability> CapabilityType = AddCapabiliyQueue[0];
-            AddCapabiliyQueue.RemoveAt(0);
+            TSubclassOf<UCapability> CapabilityType = AddCapabilityQueue[0];
+            AddCapabilityQueue.RemoveAt(0);
 
             UCapability Capability = Cast<UCapability>(NewObject(this, CapabilityType));
             Capability.Initialize(this, Owner);
@@ -213,7 +213,8 @@ class UCapabilityComponent : UActorComponent
             }
             Capability.Teardown();
         }
-        Capabilities.Empty();
+        if(!Owner.IsActorBeingDestroyed())
+            Capabilities.Empty();
     }
 
     private void Initialize()
