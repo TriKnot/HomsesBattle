@@ -3,7 +3,15 @@ class UJumpCapability : UAbilityCapability
     default Priority = ECapabilityPriority::PreMovement;
 
     UJumpAbilityData JumpAbilityData;
+    UHomseMovementComponent MoveComp;
     bool bJumpHasStarted = false;
+
+    UFUNCTION(BlueprintOverride)
+    void Setup()
+    {
+        Super::Setup();
+        MoveComp = UHomseMovementComponent::Get(Owner);
+    }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
