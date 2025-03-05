@@ -2,11 +2,13 @@ class UMeleeAttackCapability : UAbilityCapability
 {
     default Priority = ECapabilityPriority::PostInput;
 
+    // Components and Data
     USphereComponent HitSphere;
+    UHomseMovementComponent MoveComp;
     UMeleeAttackData MeleeAbilityData;
 
+    // State
     float InitialVelocity;
-
     TArray<AActor> HitActors;
     UAsyncRootMovement AsyncRootMove;
 
@@ -15,8 +17,6 @@ class UMeleeAttackCapability : UAbilityCapability
     void Setup()
     {
         Super::Setup();
-        if(!IsValid(HomseOwner))
-            return;
 
         HitSphere = USphereComponent::Create(Owner);
         HitSphere.CollisionProfileName = n"Custom";
@@ -24,6 +24,8 @@ class UMeleeAttackCapability : UAbilityCapability
         HitSphere.CollisionResponseToAllChannels = ECollisionResponse::ECR_Ignore;
         HitSphere.SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
         HitSphere.SetSphereRadius(50.0f);
+
+        MoveComp = UHomseMovementComponent::Get(Owner);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -41,80 +43,96 @@ class UMeleeAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return !bIsOnCooldown;
+        return CooldownTimer.IsExpired();
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
-        Super::OnActivate();
-
+        // Retrieve melee ability data and initialize the cooldown timer
         MeleeAbilityData = Cast<UMeleeAttackData>(AbilityComp.GetAbilityData(this));
-        AbilityCooldown = MeleeAbilityData.CooldownTime;
+        CooldownTimer.SetDuration(MeleeAbilityData.CooldownTime);
 
+        // Reset hit actor list
         HitActors.Empty();
+
+        // Attach hit sphere to socket defined in ability data
         HitSphere.AttachToComponent(HomseOwner.Mesh, MeleeAbilityData.Socket);
 
-        if(MoveComp.IsGrounded)
-            AbilityHelpers::RotateActorToCameraRotation(HomseOwner);
-
-        // Dash in the direction the character is facing
-        FRotator DashDirection = HomseOwner.GetActorRotation();
-        DashDirection.Pitch = 0.0f;
-        DashDirection.Normalize();
-
-        Dash(DashDirection.Vector());
-        
-        AsyncRootMove.OnMovementFailed.AddUFunction(this, n"OnFinishedDashing");
-        AsyncRootMove.OnMovementFinished.AddUFunction(this, n"OnFinishedDashing");
-
-        // Check for any actors that are hit by the sphere on activation
-        TArray<UHealthComponent> HitHealthComps;
-        if(AbilityHelpers::TryGetHitHealthComponents(Cast<UPrimitiveComponent>(HitSphere), HitHealthComps))
+        // Rotate character to match camera if grounded
+        if (MoveComp.IsGrounded)
         {
-            for(UHealthComponent HitHealthComp : HitHealthComps)
-            {
-                DealDamageToHealthComponent(HitHealthComp);
-            }
+            //AbilityHelpers::RotateActorToCameraRotation(HomseOwner);
         }
 
-        // Handle the case where the sphere hits an actor after activation
+        // Dash in the forward direction, ignoring pitch
+        FRotator DashRotation = HomseOwner.GetActorRotation();
+        DashRotation.Pitch = 0.0f;
+        DashRotation.Normalize();
+        Dash(DashRotation.Vector());
+
+        // Process any actors immediately hit by the sphere
+        ProcessInitialHits();
+
+        // Bind overlap event to detect further hits during dash
         HitSphere.OnComponentBeginOverlap.AddUFunction(this, n"OnHit");
 
-        bIsOnCooldown = true;
-
+        // Reset cooldown and lock movement/ability states
+        CooldownTimer.Reset();
         MoveComp.Lock(this);
         AbilityComp.Lock(this);
+
+        // Bind finish event to unlock movement/ability states
+        AsyncRootMove.OnMovementFailed.AddUFunction(this, n"OnFinishedDashing");
+        AsyncRootMove.OnMovementFinished.AddUFunction(this, n"OnFinishedDashing");
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
+        CooldownTimer.Tick(DeltaTime);
         
-        // If dash is finished, update cooldown and return
-        if(!IsValid(AsyncRootMove) || !AsyncRootMove.IsActive()) 
+        // If dash is finished, start cooldown and restore normal movement orientation
+        if (!IsValid(AsyncRootMove) || !AsyncRootMove.IsActive()) 
         {
-            UpdateCooldown(DeltaTime);
-            MoveComp.SetOrientToMovement(true);
+            CooldownTimer.Start();
+            //MoveComp.SetOrientToMovement(true);
             return;   
         }
         
+        // Visualize hit sphere for debugging purposes
         System::DrawDebugSphere(HitSphere.GetWorldLocation(), HitSphere.SphereRadius, 12, FLinearColor::Red, 0);
     }
 
+    // Called when the hit sphere overlaps with another actor
     UFUNCTION()
     void OnHit(UPrimitiveComponent OverLappedComponent, AActor OtherActor, UPrimitiveComponent OtherComp, int OtherBodyIndex, bool bFromSweep, const FHitResult&in SweepResult)
     {
         UHealthComponent HitHealthComp = UHealthComponent::Get(OtherActor);
-        if(!IsValid(HitHealthComp))
+        if (!IsValid(HitHealthComp))
             return;
+
         DealDamageToHealthComponent(HitHealthComp);
     }
 
+    // Check for immediate hit actors and apply damage
+    void ProcessInitialHits()
+    {
+        TArray<UHealthComponent> HitHealthComps;
+        if (AbilityHelpers::TryGetHitHealthComponents(Cast<UPrimitiveComponent>(HitSphere), HitHealthComps))
+        {
+            for (UHealthComponent HitHealthComp : HitHealthComps)
+            {
+                DealDamageToHealthComponent(HitHealthComp);
+            }
+        }
+    }
+
+    // Deal damage to a health component and record that the actor has been hit
     void DealDamageToHealthComponent(UHealthComponent HealthComp)
     {
         AActor HitActor = HealthComp.GetOwner();
-        if(HitActor == Owner || HitActors.Contains(HitActor))
+        if (HitActor == Owner || HitActors.Contains(HitActor))
             return;
 
         FDamageData DamageInstance = MeleeAbilityData.DamageData;
@@ -124,12 +142,12 @@ class UMeleeAttackCapability : UAbilityCapability
         HitActors.AddUnique(HitActor);
     }
 
+    // Dash the character in a given direction using asynchronous root movement
     void Dash(FVector DashDirection)
     {
         InitialVelocity = MoveComp.Velocity.Size();
 
-        AsyncRootMove = UAsyncRootMovement::ApplyConstantForce
-        (
+        AsyncRootMove = UAsyncRootMovement::ApplyConstantForce(
             MoveComp.CharacterMovement, 
             DashDirection, 
             MeleeAbilityData.DashStrength, 
@@ -141,7 +159,6 @@ class UMeleeAttackCapability : UAbilityCapability
             FVector::ZeroVector, 
             InitialVelocity * 2
         );
-
     }
 
     UFUNCTION()
@@ -151,5 +168,4 @@ class UMeleeAttackCapability : UAbilityCapability
         AbilityComp.Unlock(this);
         AsyncRootMove = nullptr;
     }
-
 };
