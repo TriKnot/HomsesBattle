@@ -3,10 +3,20 @@ class UDashCapability : UAbilityCapability
     default Priority = ECapabilityPriority::PreMovement;
 
     UPlayerCameraComponent CameraComp;
+    UHomseMovementComponent MoveComp;
+    UCapabilityComponent CapComp;
     UDashAbilityData DashData;
     UAsyncRootMovement AsyncRootMove;
 
     float InitialVelocity = 0.0f;
+
+    UFUNCTION(BlueprintOverride)
+    void Setup()
+    {
+        Super::Setup();
+        MoveComp = UHomseMovementComponent::Get(Owner);
+        CapComp = UCapabilityComponent::Get(Owner);
+    }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
@@ -26,7 +36,7 @@ class UDashCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return CooldownTimer <= 0.0f;
+        return CooldownTimer.IsExpired();
     }
 
     UFUNCTION(BlueprintOverride)
@@ -35,7 +45,7 @@ class UDashCapability : UAbilityCapability
         Super::OnActivate();
 
         DashData = Cast<UDashAbilityData>(AbilityComp.GetAbilityData(this));
-        AbilityCooldown = DashData.CooldownTime;
+        CooldownTimer = FCooldownTimer(DashData.CooldownTime);
 
         MoveComp.bIsDashing = true;
         FVector2D MoveInput = CapComp.MovementInput;
@@ -71,6 +81,8 @@ class UDashCapability : UAbilityCapability
             FVector CameraOffset = FVector(MoveInput.Y * -DashData.CameraOffsetMultiplier.X, MoveInput.X * -DashData.CameraOffsetMultiplier.Y, 0);
             CameraComp.RegisterOffset(this, CameraOffset, DashData.Duration / 2);
         }
+
+        CooldownTimer.Reset();
     }
 
     
@@ -83,13 +95,15 @@ class UDashCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
+        CooldownTimer.Tick(DeltaTime);
+
         if(!IsValid(AsyncRootMove) || !AsyncRootMove.IsActive())
         {
             if(IsValid(CameraComp))
             {
                 CameraComp.UnregisterOffset(this);
             }
-            UpdateCooldown(DeltaTime);
+            CooldownTimer.Start();
             return;   
         }
     }
