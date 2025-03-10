@@ -35,7 +35,6 @@ class AHomseCharacterBase : ACharacter
 
     default CapabilityComponent.CapabilitiesTypes.Add(UDeathCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UDamageHandlerCapability::StaticClass());
-    default CapabilityComponent.CapabilitiesTypes.Add(UDashCapability::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UKnockbackHandlerCapacity::StaticClass());
     default CapabilityComponent.CapabilitiesTypes.Add(UStunHandlerCapability::StaticClass());
 
