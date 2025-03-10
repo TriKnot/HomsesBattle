@@ -57,7 +57,7 @@ struct FCooldownTimer
     }
     
     // Check if the cooldown timer has expired
-    bool IsExpired() const
+    bool IsFinished() const
     {
         return TimeRemaining <= 0.0f;
     }
