@@ -37,6 +37,8 @@ class UAbilityComponent : ULockableComponent
         for (auto InputAbilityBinding : Abilities)
         {
             CapComp.AddCapability(InputAbilityBinding.Value.AbilityCapabilityClass);
+            UTestAbilityData TestCopy = InitializeTestAbilityData(Cast<UTestAbilityData>(InputAbilityBinding.Value), HomseOwner);
+            Abilities[InputAbilityBinding.Key] = TestCopy;
         }
     }
 
@@ -121,12 +123,10 @@ class UAbilityComponent : ULockableComponent
 
         return nullptr;
     }
-    
 
-
-    // FVector GetAttackSocketLocation() property
-    // {
-    //     return HomseOwner.Mesh.GetSocketLocation(AttackSocket);
-    // }
+    UTestAbilityData InitializeTestAbilityData(UTestAbilityData TestAbility, AHomseCharacterBase OuterOwner)
+    {
+        return Cast<UTestAbilityData>(DuplicateObject::DuplicateObjectBlueprint(TestAbility, OuterOwner));
+    }
 
 };
