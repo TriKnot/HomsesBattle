@@ -89,7 +89,7 @@ class UHomseMovementComponent : ULockableComponent
         return CharacterMovementComponent.IsMovingOnGround();
     }
 
-    void SetOrientToMovement(bool bOrientToMovement)
+    void SetOrientRotationToMovement(bool bOrientToMovement)
     {
         CharacterMovementComponent.bOrientRotationToMovement = bOrientToMovement;
         CharacterMovementComponent.bUseControllerDesiredRotation = !bOrientToMovement;
