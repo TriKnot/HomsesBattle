@@ -9,9 +9,9 @@ class UPlayerCameraComponent : UActorComponent
     TMap<UObject, FCameraOffsetTarget> ActiveOffsets;
     TMap<UObject, FCameraOffsetTarget> RevertingOffsets;
 
-    void RegisterOffset(UObject Capability, FVector& Offset, float LerpTime, bool bUpdate = false)
+    void RegisterOffset(UObject Capability, FVector& Offset, float LerpTime, bool bOverridePrevious = false)
     {
-        if (ActiveOffsets.Contains(Capability) && !bUpdate)
+        if (ActiveOffsets.Contains(Capability) && !bOverridePrevious)
             return;
 
         FCameraOffsetTarget OffsetTarget;
