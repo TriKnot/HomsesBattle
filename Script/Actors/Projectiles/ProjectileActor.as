@@ -9,6 +9,7 @@ class AProjectileActor : AActor
     UProjectileMeshData MeshDataAsset;
     AActor SourceActor;
     TArray<AActor> IgnoredActors;
+    bool bActivated = false;
 
     default Root.SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     default Root.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
@@ -27,6 +28,11 @@ class AProjectileActor : AActor
     void SetSourceActor(AActor InSource)
     {
         SourceActor = InSource;
+    }
+
+    void Fire()
+    {
+        bActivated = true;
     }
 
 };

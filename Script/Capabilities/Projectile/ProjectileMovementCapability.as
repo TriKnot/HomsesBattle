@@ -17,7 +17,7 @@ class UProjectileMovementCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return true;
+        return ProjectileOwner.bActivated;
     }
 
     UFUNCTION(BlueprintOverride)
