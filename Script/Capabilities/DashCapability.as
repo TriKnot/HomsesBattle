@@ -21,10 +21,10 @@ class UDashCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        if(MoveComp.IsLocked())
-            return false;
-
         if(!AbilityComp.IsAbilityActive(this))
+            return false;
+        
+        if(MoveComp.IsLocked())
             return false;
 
         if(CapComp.MovementInput.IsNearlyZero())
@@ -36,7 +36,7 @@ class UDashCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        return CooldownTimer.IsExpired();
+        return CooldownTimer.IsFinished();
     }
 
     UFUNCTION(BlueprintOverride)

@@ -27,7 +27,7 @@ namespace AbilityHelpers
         NewRotation.Pitch = 0.0f;
         NewRotation.Normalize();
 
-        Homse.HomseMovementComponent.SetOrientToMovement(false);
+        Homse.HomseMovementComponent.SetOrientRotationToMovement(false);
 
         if (SnapToRotation)
             Homse.SetActorRotation(NewRotation);

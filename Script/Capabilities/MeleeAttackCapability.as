@@ -43,7 +43,7 @@ class UMeleeAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return CooldownTimer.IsExpired();
+        return CooldownTimer.IsFinished();
     }
 
     UFUNCTION(BlueprintOverride)

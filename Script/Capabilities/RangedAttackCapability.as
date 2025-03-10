@@ -39,7 +39,7 @@ class URangedAttackCapability : UAbilityCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return AbilityComp.IsLocked(this) || CooldownTimer.IsExpired();
+        return AbilityComp.IsLocked(this) || CooldownTimer.IsFinished();
     }
 
     UFUNCTION(BlueprintOverride)
@@ -97,7 +97,7 @@ class URangedAttackCapability : UAbilityCapability
 
         // Tick the cooldown timer.
         CooldownTimer.Tick(DeltaTime);
-        if (CooldownTimer.IsActive() || CooldownTimer.IsExpired())
+        if (CooldownTimer.IsActive() || CooldownTimer.IsFinished())
             return;
 
         // Lock the ability to ensure safe processing.
@@ -130,7 +130,7 @@ class URangedAttackCapability : UAbilityCapability
     // Update camera offset and movement orientation based on ability state.
     void UpdateCameraAndMovement()
     {
-        MoveComp.SetOrientToMovement(!AbilityComp.IsAbilityActive(this));
+        MoveComp.SetOrientRotationToMovement(!AbilityComp.IsAbilityActive(this));
 
         if (IsValid(CameraComp))
         {
