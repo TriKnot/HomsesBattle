@@ -3,26 +3,34 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
     UPROPERTY(EditAnywhere)
     FName LaunchSocketName;
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditAnywhere, Category="Visual")
     UStaticMesh TrajectoryMesh;
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditAnywhere, Category="Visual")
     UMaterialInterface TrajectoryMaterial;
 
+    UPROPERTY(EditDefaultsOnly, Category="Simulation")
+    float DesiredStepsPerSec = 10.0f; 
+
+    UPROPERTY(EditAnywhere, Category="Visual")
+    float MeshSegmentLength = 250.0f;
+        
+    UPROPERTY(EditAnywhere, Category="Visual")
+    float GapLengthBetweenMeshSegements = 0.0f;
+
     UTrajectoryVisualization TrajectoryVisualization;
-    float GravityEffectMultiplier;
 
     UFUNCTION(BlueprintOverride)
     void OnAbilityActivate(UAbilityCapability Ability)
     {
         UProjectileAbilityContext AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
-        GravityEffectMultiplier = GetGravityData(AbilityContext.ProjectileData);
-
+        float GravityEffectMultiplier = GetGravityData(AbilityContext.ProjectileData);
         TrajectoryVisualization = Cast<UTrajectoryVisualization>(NewObject(this, UTrajectoryVisualization::StaticClass()));
         
         if (IsValid(TrajectoryVisualization))
         {
-            TrajectoryVisualization.Init(Ability.Owner, TrajectoryMesh, TrajectoryMaterial, GravityEffectMultiplier);
+            TrajectoryVisualization.Init(Ability.Owner, TrajectoryMesh, TrajectoryMaterial, GravityEffectMultiplier, 
+                DesiredStepsPerSec, MeshSegmentLength, GapLengthBetweenMeshSegements);
         }
     }
 
@@ -34,7 +42,6 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
 
         UProjectileAbilityContext AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
 
-        TrajectoryVisualization.ClearSimulatedTrajectory();
         FVector SocketLocation = Ability.HomseOwner.Mesh.GetSocketLocation(LaunchSocketName);
         TrajectoryVisualization.Simulate(SocketLocation, AbilityContext.InitialVelocity);
 
@@ -43,7 +50,7 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
     UFUNCTION(BlueprintOverride)
     void OnAbilityFire(UAbilityCapability Ability)
     {
-        TrajectoryVisualization.ClearSimulatedTrajectory();
+        TrajectoryVisualization.Clear();
     }
 
     float GetGravityData(UProjectileData Data)

@@ -1,40 +1,39 @@
 class UTrajectoryVisualization : UObject
 {
-    float GravityMult;
-    USplineComponent TrajectorySpline;
-    TArray<USplineMeshComponent> SplineMeshes;
+    AActor Owner;
     UStaticMesh TrajectoryMesh;
     UMaterialInterface TrajectoryMaterial;
-    AActor Owner;
+    float GravityMult;
+    float DesiredMeshSegmentLength = 20.0f;
+    float GapBetweenSegments = 20.0f;
 
-    // Trace data
+    // Simulation Parameters
+    float DesiredStepsPerSec;
+    // Spline and Trace data
+    USplineComponent TrajectorySpline;
+    TArray<USplineMeshComponent> SplineMeshes;
     TArray<AActor> ActorsToIgnore;
     TArray<EObjectTypeQuery> ObjectTypes;
     default ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldStatic));
     default ObjectTypes.Add(UCollisionProfile::ConvertToObjectType(ECollisionChannel::ECC_WorldDynamic));
 
-    float DesiredResolution = 100.0f; 
+    /* --------------------------------------------------
+       Public Interface
+    ----------------------------------------------------- */
 
-    void Init(URangedAttackData Data, AActor OwningActor)
+    // Initialize the trajectory visualization
+    void Init(AActor OwningActor, UStaticMesh Mesh, UMaterialInterface Material, float InGravityMultiplier,
+              float InDesiredStepsPerSec, float InDesiredMeshSegmentLength = 1.0f, float InGapBetweenSegments = 0.0f)
     {
-        TrajectoryMesh = Data.TrajectoryMesh;
-        TrajectoryMaterial = Data.TrajectoryMaterial;
-        GravityMult = GetGravityData(Data);
         Owner = OwningActor;
-        TrajectorySpline = USplineComponent::Create(Owner);
-        TrajectorySpline.AttachToComponent(Owner.RootComponent);
-        TrajectorySpline.SetMobility(EComponentMobility::Movable);
-        TrajectorySpline.SetSimulatePhysics(false);
-        TrajectorySpline.SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        ActorsToIgnore.AddUnique(Owner);
-    }
-
-    void Init(AActor OwningActor, UStaticMesh Mesh, UMaterialInterface Material, float GravityMultiplier)
-    {
         TrajectoryMesh = Mesh;
         TrajectoryMaterial = Material;
-        GravityMult = GravityMultiplier;
-        Owner = OwningActor;
+        GravityMult = InGravityMultiplier;
+        DesiredStepsPerSec = InDesiredStepsPerSec;
+        DesiredMeshSegmentLength = InDesiredMeshSegmentLength;
+        GapBetweenSegments = InGapBetweenSegments;
+
+        // Create the spline component and attach to owner
         TrajectorySpline = USplineComponent::Create(Owner);
         TrajectorySpline.AttachToComponent(Owner.RootComponent);
         TrajectorySpline.SetMobility(EComponentMobility::Movable);
@@ -42,41 +41,31 @@ class UTrajectoryVisualization : UObject
         TrajectorySpline.SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
 
+    // Simulate the trajectory
+
+    void Simulate(FVector StartLocation, FVector InitialVelocity)
+    {
+        if(Math::IsNearlyZero(InitialVelocity.Size()))
+            return;
+
+        HideSimulatedTrajectory();
+
+        TArray<FVector> Points = GetSimulatedTrajectoryPoints(
+            StartLocation, 
+            InitialVelocity, 
+            GravityMult * PhysicStatics::Gravity,
+            1.5f);
+        DrawSimulatedTrajectory(Points);
+    }
+
+    // Clear the simulated trajectory
     void Clear()
     {
         if(IsValid(TrajectorySpline))
+        {
             TrajectorySpline.DestroyComponent(TrajectorySpline);
-
-        for (USplineMeshComponent Mesh : SplineMeshes)
-        {
-            Mesh.DestroyComponent(Mesh);
+            TrajectorySpline = nullptr;
         }
-        SplineMeshes.Empty();
-    }
-
-    float ComputeDynamicMaxSimulationTime(const FVector& InitialVelocity)
-    {
-        float Gravity = PhysicStatics::Gravity * GravityMult;
-        if (InitialVelocity.Z > 0)
-        {
-            return (2 * InitialVelocity.Z) / Gravity;
-        }
-
-        return 1.0f;
-    }
-
-    float ComputeTimeStep(const FVector& InitialVelocity)
-    {
-        float Speed = InitialVelocity.Size();
-        float TimeStep = DesiredResolution / Speed;
-
-        return Math::Clamp(TimeStep, 0.005f, 0.05f);
-    }
-
-    void ClearSimulatedTrajectory()
-    {
-        if(IsValid(TrajectorySpline))
-            TrajectorySpline.ClearSplinePoints();
 
         for (USplineMeshComponent Mesh : SplineMeshes)
         {
@@ -86,80 +75,77 @@ class UTrajectoryVisualization : UObject
         SplineMeshes.Empty();
     }
 
-    void Simulate(FVector StartLocation, FVector InitialVelocity)
+    /* --------------------------------------------------
+        Private Implementation
+    ----------------------------------------------------- */
+
+    // Clear the simulated trajectory
+    private void HideSimulatedTrajectory()
     {
-        TArray<FVector> Points = GetSimulatedTrajectoryPoints(
-            StartLocation, 
-            InitialVelocity, 
-            GravityMult);
-        DrawSimulatedTrajectory(Points);
+        for (USplineMeshComponent SplineMesh : SplineMeshes)
+        {
+            if (IsValid(SplineMesh))
+            {
+                SplineMesh.SetVisibility(false);
+            }
+        }
     }
 
-
-    TArray<FVector> GetSimulatedTrajectoryPoints(const FVector& InitialPosition, const FVector& InitialVelocity, float GravityEffectMultiplier)
+    // Compute the trajectory points
+    private TArray<FVector> GetSimulatedTrajectoryPoints(const FVector& InitialPosition, const FVector& InitialVelocity, float Gravity, float ExtendedSimulationTime)
     {
-        float MaxSimulationTime = ComputeDynamicMaxSimulationTime(InitialVelocity);
-        float TimeStep = ComputeTimeStep(InitialVelocity);
-
-        FVector Position = InitialPosition;
-        FVector Velocity = InitialVelocity;
         TArray<FVector> Points;
-        Points.Add(Position);
+        Points.Add(InitialPosition);
+        FHitResult Hit;
+        float TotalTime;
 
-        float TotalSquaredDistance = 0.0f;
-        float MaxDistance = 10000.0f;
-        float MaxDistanceSquared = MaxDistance * MaxDistance;
-
-        for (float t = 0; t <= MaxSimulationTime; t += TimeStep)
+        if (Math::IsNearlyZero(Gravity))
         {
-            FVector OldPosition = Position;
+            TotalTime = ExtendedSimulationTime; 
+        }
+        else
+        {
+            float BaseFlightTime = (InitialVelocity.Z > 0) ? (2 * InitialVelocity.Z / Gravity) : 1.0f;
+            TotalTime = (ExtendedSimulationTime > BaseFlightTime) ? ExtendedSimulationTime : BaseFlightTime;
+        }
 
-            Velocity.Z -= PhysicStatics::Gravity * GravityEffectMultiplier * TimeStep;
-            Position += Velocity * TimeStep;
-            TotalSquaredDistance += OldPosition.DistSquared(Position);
+        float dt = 1.0f / DesiredStepsPerSec;
+        FVector Position = InitialPosition;
+        FVector OldPosition = InitialPosition;
 
-            if (TotalSquaredDistance > MaxDistanceSquared)
-            {
-                Points.Add(Position);
-                break;
-            }
+        for (float t = dt; t < TotalTime; t += dt)
+        {
+            OldPosition = Position;
 
-            FHitResult Hit;
-            System::LineTraceSingleForObjects(
-                OldPosition,
-                Position,
-                ObjectTypes,
-                false,
-                ActorsToIgnore,
-                EDrawDebugTrace::None, 
-                Hit,
-                true
-            );          
-            if(Hit.bBlockingHit)      
+            Position.X = InitialPosition.X + InitialVelocity.X * t;
+            Position.Y = InitialPosition.Y + InitialVelocity.Y * t;
+            Position.Z = InitialPosition.Z + InitialVelocity.Z * t - 0.5f * Gravity * t * t;
+
+            if (System::LineTraceSingleForObjects(OldPosition, Position, ObjectTypes, false, ActorsToIgnore, EDrawDebugTrace::None, Hit, true))
             {
                 Points.Add(Hit.Location);
-                //System::DrawDebugBox(Hit.Location, FVector(2.0f, 2.0f, 2.0f), FLinearColor::Red);
                 break;
             }
 
             Points.Add(Position);
         }
-
         return Points;
     }
 
-    void DrawSimulatedTrajectory(const TArray<FVector>& Points)
+    // Draw the simulated trajectory
+    private void DrawSimulatedTrajectory(const TArray<FVector>& Points)
     {
         if (!IsValid(TrajectorySpline))
             return;
 
         TrajectorySpline.ClearSplinePoints();
-        ClearSimulatedTrajectory();
 
         for (int i = 0; i < Points.Num(); ++i)
         {
             TrajectorySpline.AddSplinePoint(Points[i], ESplineCoordinateSpace::World, false);
         }
+
+        TrajectorySpline.UpdateSpline();
 
         if (Points.Num() > 1)
         {
@@ -171,12 +157,30 @@ class UTrajectoryVisualization : UObject
             
             TrajectorySpline.SetTangentAtSplinePoint(Points.Num() - 1, FinalTangent, ESplineCoordinateSpace::World);
         }
-
         TrajectorySpline.SetSplinePointType(Points.Num() - 1, ESplinePointType::CurveCustomTangent, true);
 
-        for (int i = 0; i < Points.Num() - 1; ++i)
+
+        float TotalLength = TrajectorySpline.GetSplineLength();
+        float StepLength = DesiredMeshSegmentLength + GapBetweenSegments;
+        int NumSegments = Math::CeilToInt(TotalLength / StepLength);
+
+
+        for (int i = 0; i < NumSegments; ++i)
         {
-            USplineMeshComponent SplineMesh = USplineMeshComponent::Create(Owner);
+            float StartDistance = i * StepLength;
+            if (StartDistance >= TotalLength)
+                break;
+            float EndDistance = Math::Min(StartDistance + DesiredMeshSegmentLength, TotalLength);
+
+            USplineMeshComponent SplineMesh = GetOrCreateSplineMeshComponent(i);
+            if(!IsValid(SplineMesh))
+                continue;
+
+            FVector StartPos = TrajectorySpline.GetLocationAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::Local);
+            FVector StartTangent = TrajectorySpline.GetTangentAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::Local);
+            FVector EndPos = TrajectorySpline.GetLocationAtDistanceAlongSpline(EndDistance, ESplineCoordinateSpace::Local);
+            FVector EndTangent = TrajectorySpline.GetTangentAtDistanceAlongSpline(EndDistance, ESplineCoordinateSpace::Local);
+
             SplineMesh.AttachToComponent(TrajectorySpline);
             SplineMesh.SetMobility(EComponentMobility::Movable);
             SplineMesh.SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -184,28 +188,28 @@ class UTrajectoryVisualization : UObject
             SplineMesh.SetEndScale(FVector2D(0.1f, 0.1f));
             SplineMesh.SetStaticMesh(TrajectoryMesh);
             SplineMesh.SetMaterial(0, TrajectoryMaterial);
-
-            FVector StartPos, StartTangent, EndPos, EndTangent;
-            TrajectorySpline.GetLocationAndTangentAtSplinePoint(i, StartPos, StartTangent, ESplineCoordinateSpace::Local);
-            TrajectorySpline.GetLocationAndTangentAtSplinePoint(i + 1, EndPos, EndTangent, ESplineCoordinateSpace::Local);
             SplineMesh.SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
-            
-            SplineMeshes.Add(SplineMesh);
         }
     }
 
-    float GetGravityData(URangedAttackData Data)
+    // Get or create a spline mesh component
+    private USplineMeshComponent GetOrCreateSplineMeshComponent(int Index)
     {
-        for(UProjectileDataComponent DataComp : Data.ProjectileData.Components)
+        USplineMeshComponent SplineMesh = nullptr;
+        if (Index < SplineMeshes.Num())
         {
-            if(DataComp.IsA(UProjectileGravityData::StaticClass()))
+            SplineMesh = SplineMeshes[Index];
+        }
+        else
+        {
+            SplineMesh = USplineMeshComponent::Create(Owner);
+            if (IsValid(SplineMesh))
             {
-                return Cast<UProjectileGravityData>(DataComp).GravityEffectMultiplier;
-                
+                SplineMeshes.Add(SplineMesh);
             }
         }
-        return 1.0f;
+        SplineMesh.SetVisibility(true);
+        return SplineMesh;
     }
-
 
 }
