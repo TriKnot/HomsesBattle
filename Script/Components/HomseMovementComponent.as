@@ -28,6 +28,7 @@ class UHomseMovementComponent : ULockableComponent
         CharacterMovementComponent = HomseOwner.CharacterMovement;
         CharacterMovementComponent.bOrientRotationToMovement = true;
         CharacterMovementComponent.bUseControllerDesiredRotation = false;
+        CharacterMovementComponent.bImpartBaseAngularVelocity = false;
     }
 
     void SetMovementSpeed(EMovementSpeed Speed)
