@@ -33,7 +33,12 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
             TrajectoryVisualization.Init(Ability.Owner, TrajectoryMesh, TrajectoryMaterial, GravityEffectMultiplier, 
                 DesiredStepsPerSec, MeshSegmentLength, GapLengthBetweenMeshSegements);
         }
+    }
 
+    UFUNCTION(BlueprintOverride)
+    void OnAbilityDeactivate(UAbilityCapability Ability)
+    {
+        TrajectoryVisualization.Clear();
     }
 
     UFUNCTION(BlueprintOverride)
