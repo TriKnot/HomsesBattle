@@ -51,23 +51,14 @@ class UDashAbilityModifier : UAbilityModifier
 
         AsyncRootMove.OnMovementFailed.AddUFunction(this, n"OnDashFinished");
         AsyncRootMove.OnMovementFinished.AddUFunction(this, n"OnDashFinished");
-
-        MoveComp.Lock(this);
+        
+        MoveComp.bIsDashing = true;
     }
-
-    UFUNCTION(BlueprintOverride)
-    void OnAbilityDeactivate(UAbilityCapability Ability)
-    {
-        MoveComp.Unlock(this);
-    }
-
     
     UFUNCTION()
     void OnDashFinished()
     {
-        MoveComp.Unlock(this);
         MoveComp.bIsDashing = false;
     }
-
 
 }
