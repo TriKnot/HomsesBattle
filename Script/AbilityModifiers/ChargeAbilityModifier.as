@@ -1,8 +1,14 @@
 class UChargeAbilityModifier : UAbilityModifier
 {
-    // The time it takes to charge the ability from 0 to 1.
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float ChargeTime = 1.0f;
+
+    UFUNCTION(BlueprintOverride)
+    void SetupModifier(UAbilityCapability Ability)
+    {
+        Super::SetupModifier(Ability);
+        Ability.WarmUpDuration = ChargeTime;
+    }
 
     UFUNCTION(BlueprintOverride)
     void OnAbilityActivate(UAbilityCapability Ability)
@@ -15,7 +21,7 @@ class UChargeAbilityModifier : UAbilityModifier
     }
 
     UFUNCTION(BlueprintOverride)
-    void OnAbilityTick(UAbilityCapability Ability, float DeltaTime)
+    void OnAbilityWarmUpTick(UAbilityCapability Ability, float DeltaTime)
     {
         if (!IsValid(Ability))
             return;
