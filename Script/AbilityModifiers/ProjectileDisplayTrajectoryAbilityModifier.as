@@ -19,11 +19,12 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
     float GapLengthBetweenMeshSegements = 0.0f;
 
     UTrajectoryVisualization TrajectoryVisualization;
+    UProjectileAbilityContext AbilityContext;
 
     UFUNCTION(BlueprintOverride)
     void OnAbilityActivate(UAbilityCapability Ability)
     {
-        UProjectileAbilityContext AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
+        AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
         float GravityEffectMultiplier = GetGravityData(AbilityContext.ProjectileData);
         TrajectoryVisualization = Cast<UTrajectoryVisualization>(NewObject(this, UTrajectoryVisualization::StaticClass()));
         
@@ -32,25 +33,37 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
             TrajectoryVisualization.Init(Ability.Owner, TrajectoryMesh, TrajectoryMaterial, GravityEffectMultiplier, 
                 DesiredStepsPerSec, MeshSegmentLength, GapLengthBetweenMeshSegements);
         }
+
     }
 
     UFUNCTION(BlueprintOverride)
-    void OnAbilityTick(UAbilityCapability Ability, float DeltaTime)
+    void OnAbilityWarmUpTick(UAbilityCapability Ability, float DeltaTime)
     {
         if(!IsValid(Ability))
             return;
 
-        UProjectileAbilityContext AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
+        DisplayTrajectory(Ability);
+    }
 
-        FVector SocketLocation = Ability.HomseOwner.Mesh.GetSocketLocation(LaunchSocketName);
-        TrajectoryVisualization.Simulate(SocketLocation, AbilityContext.InitialVelocity);
+    UFUNCTION(BlueprintOverride)
+    void OnAbilityActiveTick(UAbilityCapability Ability, float DeltaTime)
+    {
+        if(!IsValid(Ability))
+            return;
 
+        DisplayTrajectory(Ability);
     }
 
     UFUNCTION(BlueprintOverride)
     void OnAbilityFire(UAbilityCapability Ability)
     {
         TrajectoryVisualization.Clear();
+    }
+
+    void DisplayTrajectory(UAbilityCapability Ability)
+    {
+        FVector SocketLocation = Ability.HomseOwner.Mesh.GetSocketLocation(LaunchSocketName);
+        TrajectoryVisualization.Simulate(SocketLocation, AbilityContext.InitialVelocity);
     }
 
     float GetGravityData(UProjectileData Data)
