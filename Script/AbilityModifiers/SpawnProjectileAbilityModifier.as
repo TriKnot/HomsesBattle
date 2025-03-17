@@ -12,7 +12,6 @@ class USpawnProjectileAbilityModifier : UAbilityModifier
     UFUNCTION(BlueprintOverride)
     void OnAbilityActivate(UAbilityCapability Ability)
     {
-        Print("USpawnProjectileAbilityModifier::OnAbilityActivate");
         UProjectileAbilityContext AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
         AbilityContext.ProjectileData = ProjectileData;
     }
@@ -29,10 +28,10 @@ class USpawnProjectileAbilityModifier : UAbilityModifier
         {
             FVector SocketLocation = Ability.HomseOwner.Mesh.GetSocketLocation(SpawnSocketName);
             AProjectileActor Projectile = UProjectileBuilder()
+            .WithProjectileData(ProjectileData)
             .WithSourceActor(Ability.Owner)
             .WithStartingLocation(SocketLocation)
             .WithInitialVelocity(AbilityContext.InitialVelocity)
-            .WithProjectileData(ProjectileData)
             .Build();
 
             AbilityContext.Projectiles.Add(Projectile);
