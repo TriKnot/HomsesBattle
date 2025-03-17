@@ -1,10 +1,10 @@
-struct FCooldownTimer
+struct FTimer
 {
     float Duration;
     float TimeRemaining;
     bool bIsStarted;
 
-    FCooldownTimer(float InDuration)
+    FTimer(float InDuration)
     {
         Duration = InDuration;
         TimeRemaining = 0.0f;
