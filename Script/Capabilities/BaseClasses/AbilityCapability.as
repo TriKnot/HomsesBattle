@@ -2,20 +2,25 @@ class UAbilityCapability : UCapability
 {
     default Priority = ECapabilityPriority::PostInput;
 
-    // Components
-    AHomseCharacterBase HomseOwner;
-    UAbilityComponent AbilityComp;
-
-    FCooldownTimer CooldownTimer;
-
+    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability")
+    UAbilityTriggerModeModifier TriggerModeModifier;
+    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability")
     TArray<UAbilityModifier> Modifiers;
 
-    private bool bFired = false;
+    float WarmUpDuration = 0.0f;
+    float ActiveDuration = 0.0f;
+    float CooldownDuration = 0.0f;
+
+    FTimer StateTimer;
+    AHomseCharacterBase HomseOwner;
+    UAbilityComponent AbilityComp;
+    EActiveAbilityState AbilityState;
+
     access TriggerProtection = protected, UAbilityTriggerModeModifier;
     access:TriggerProtection bool bShouldFire;
+    private bool bFired = false;
 
-    TArray<UAbilityContext> Contexts;
-    UAbilityTriggerModeModifier TriggerModeModifier;
+    private TArray<UAbilityContext> Contexts;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
@@ -25,6 +30,26 @@ class UAbilityCapability : UCapability
             return;
 
         AbilityComp = HomseOwner.AbilityComponent;
+
+        for (UAbilityModifier Modifier : Modifiers)
+        {
+            if(!IsValid(Modifier))
+                continue;
+            
+            Modifier.SetupModifier(this);
+        }
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void Teardown()
+    {
+        for (UAbilityModifier Modifier : Modifiers)
+        {
+            if(!IsValid(Modifier))
+                continue;
+
+            Modifier.TeardownModifier(this);
+        }
     }
 
     UFUNCTION(BlueprintOverride)
@@ -36,7 +61,7 @@ class UAbilityCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return AbilityComp.IsLocked(this) || CooldownTimer.IsFinished();
+        return AbilityComp.IsLocked(this) || (bFired && StateTimer.IsFinished());
     }
 
     UFUNCTION(BlueprintOverride)
@@ -45,12 +70,13 @@ class UAbilityCapability : UCapability
         bFired = false;
         bShouldFire = false;
 
-        UTestAbilityData TestAbility = Cast<UTestAbilityData>(AbilityComp.GetAbilityData(this));
-
-        if(IsValid(TestAbility))
+        if(WarmUpDuration > 0.0f)
         {
-            Modifiers = TestAbility.Modifiers;
-            TriggerModeModifier = TestAbility.TriggerModeModifier;
+            SwitchState(EActiveAbilityState::WarmUp);
+        }else
+        {
+            SwitchState(EActiveAbilityState::Active);
+            FireAbility();
         }
 
         for (UAbilityContext Context : Contexts)
@@ -69,45 +95,93 @@ class UAbilityCapability : UCapability
             Modifier.OnAbilityActivate(this);
         }
 
-        CooldownTimer.SetDuration(TestAbility.CooldownTime);
-        CooldownTimer.Reset();
+        if (IsValid(TriggerModeModifier))
+        {
+            TriggerModeModifier.OnAbilityStart(this);
+        }
 
-        TriggerModeModifier.OnAbilityStart(this);
     }
 
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
+    {
+        switch (AbilityState)
+        {
+            case EActiveAbilityState::WarmUp:
+                TickWarmUp(DeltaTime);
+                Print("Warming Up!", 0);
+                break;
+            case EActiveAbilityState::Active:
+                TickActivePhase(DeltaTime);
+                Print("Active!", 0);
+                break;
+            case EActiveAbilityState::Cooldown:
+                TickCooldown(DeltaTime);
+                Print("Cooldown!", 0);
+                break;
+            default:
+                break;
+        }
+
+        for (UAbilityModifier Modifier : Modifiers)
+        {
+            if (IsValid(Modifier))
+                Modifier.OnAbilityTick(this, DeltaTime);
+        }
+    }
+
+    void TickWarmUp(float DeltaTime)
     {
         if(!AbilityComp.IsAbilityActive(this))
         {
             TriggerModeModifier.OnAbilityReleased(this);
         }
 
-        CooldownTimer.Tick(DeltaTime);
-        if(CooldownTimer.IsActive() || CooldownTimer.IsFinished())
+        if(bShouldFire && !bFired)
+        {
+            FireAbility();
+            SwitchState(EActiveAbilityState::Active);
             return;
+        }
+
+        if (!TriggerModeModifier.IsA(UOnAbilityReleasedTriggerModeAbilityModifier) && StateTimer.IsFinished())
+            return;
+
+        StateTimer.Tick(DeltaTime);
 
         for (UAbilityModifier Modifier : Modifiers)
         {
-            if(!IsValid(Modifier))
-                continue;
-
-            Modifier.OnAbilityTick(this, DeltaTime);
+            if (IsValid(Modifier))
+                Modifier.OnAbilityWarmUpTick(this, DeltaTime);
         }
 
-        if(!bShouldFire || bFired)
-            return;
+    }
+
+    void TickActivePhase(float DeltaTime)
+    {
+        StateTimer.Tick(DeltaTime);
 
         for (UAbilityModifier Modifier : Modifiers)
         {
-            if(!IsValid(Modifier))
-                continue;
-            
-            Modifier.ModifyFire(this);
+            if (IsValid(Modifier))
+                Modifier.OnAbilityActiveTick(this, DeltaTime);
         }
 
-        FireAbility();
-        CooldownTimer.Start();
+        if (StateTimer.IsFinished())
+        {
+            SwitchState(EActiveAbilityState::Cooldown);
+        }
+    }
+
+    void TickCooldown(float DeltaTime)
+    {
+        StateTimer.Tick(DeltaTime);
+
+        for (UAbilityModifier Modifier : Modifiers)
+        {
+            if (IsValid(Modifier))
+                Modifier.OnAbilityCooldownTick(this, DeltaTime);
+        }
     }
 
     UFUNCTION(BlueprintOverride)
@@ -125,6 +199,14 @@ class UAbilityCapability : UCapability
     UFUNCTION(BlueprintEvent)
     void FireAbility()
     {
+        for (UAbilityModifier Modifier : Modifiers)
+        {
+            if(!IsValid(Modifier))
+                continue;
+
+            Modifier.ModifyFire(this);
+        }
+
         for (UAbilityModifier Modifier : Modifiers)
         {
             if(!IsValid(Modifier))
@@ -161,4 +243,33 @@ class UAbilityCapability : UCapability
         return false;
     }
 
+    private void SwitchState(EActiveAbilityState NewState)
+    {
+        switch (NewState)
+        {
+            case EActiveAbilityState::WarmUp:
+                StateTimer.SetDuration(WarmUpDuration);
+                break;
+            case EActiveAbilityState::Active:
+                StateTimer.SetDuration(ActiveDuration);
+                break;
+            case EActiveAbilityState::Cooldown:
+                StateTimer.SetDuration(CooldownDuration);
+                break;
+            default:
+                break;
+        }
+
+        AbilityState = NewState;
+        StateTimer.Reset();
+        StateTimer.Start();
+    }
+
+};
+
+enum EActiveAbilityState
+{
+    WarmUp,
+    Active,
+    Cooldown
 };

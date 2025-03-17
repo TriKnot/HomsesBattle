@@ -2,10 +2,10 @@ class UAbilityComponent : ULockableComponent
 {    
     // Store assigned abilities by slot
     UPROPERTY()
-    TMap<FName, UAbilityData> Abilities;    
+    TMap<FName, TSubclassOf<UAbilityCapability>> InputAbilityBindings;    
 
     // Store active abilities by capability class
-    TArray<UAbilityData> ActiveAbilities;
+    TArray<UAbilityCapability> ActiveAbilities;
 
     AHomseCharacterBase HomseOwner;
     UCapabilityComponent CapComp;
@@ -16,6 +16,7 @@ class UAbilityComponent : ULockableComponent
         HomseOwner = Cast<AHomseCharacterBase>(GetOwner());
         
         if (!IsValid(HomseOwner))
+
         {
             PrintError("UAbilityComponent: Owner is not AHomseCharacterBase");
             return;
@@ -34,66 +35,64 @@ class UAbilityComponent : ULockableComponent
 
     void InitStartingAbilities()
     {
-        for (auto InputAbilityBinding : Abilities)
+        for (auto Binding : InputAbilityBindings)
         {
-            CapComp.AddCapability(InputAbilityBinding.Value.AbilityCapabilityClass);
-            UTestAbilityData TestCopy = InitializeTestAbilityData(Cast<UTestAbilityData>(InputAbilityBinding.Value), HomseOwner);
-            Abilities[InputAbilityBinding.Key] = TestCopy;
+            CapComp.AddCapability(Binding.Value);
         }
     }
 
-    void AddAbility(FName Slot, UAbilityData NewAbilityData)
-    {
-        if (!IsValid(NewAbilityData))
-            return;
+    // void AddAbility(FName Slot, UAbilityData NewAbilityData)
+    // {
+    //     if (!IsValid(NewAbilityData))
+    //         return;
 
-        // Remove existing ability in this slot before adding the new one
-        if (Abilities.Contains(Slot))
-        {
-            RemoveAbility(Slot);
-        }
+    //     // Remove existing ability in this slot before adding the new one
+    //     if (Abilities.Contains(Slot))
+    //     {
+    //         RemoveAbility(Slot);
+    //     }
 
-        // Assign new ability
-        Abilities.Add(Slot, NewAbilityData);
+    //     // Assign new ability
+    //     Abilities.Add(Slot, NewAbilityData);
 
-        // Add the associated capability
-        CapComp.AddCapability(NewAbilityData.AbilityCapabilityClass);
-    }
+    //     // Add the associated capability
+    //     CapComp.AddCapability(NewAbilityData.AbilityCapabilityClass);
+    // }
 
-    void RemoveAbility(FName Slot)
-    {
-        if (!Abilities.Contains(Slot))
-            return;
+    // void RemoveAbility(FName Slot)
+    // {
+    //     if (!Abilities.Contains(Slot))
+    //         return;
 
-        TSubclassOf<UAbilityCapability> CapabilityClass = Abilities[Slot].AbilityCapabilityClass;
+    //     TSubclassOf<UAbilityCapability> CapabilityClass = Abilities[Slot].AbilityCapabilityClass;
 
-        // Remove ability from slot
-        Abilities.Remove(Slot);
+    //     // Remove ability from slot
+    //     Abilities.Remove(Slot);
 
-        // Remove the associated capability if no other active Ability uses it
-        for (auto InputAbilityBinding : Abilities)
-        {
-            if (InputAbilityBinding.Value.AbilityCapabilityClass == CapabilityClass)
-            {
-                return;
-            }
-        }
-        CapComp.RemoveCapability(Abilities[Slot].AbilityCapabilityClass);
-    }
+    //     // Remove the associated capability if no other active Ability uses it
+    //     for (auto InputAbilityBinding : Abilities)
+    //     {
+    //         if (InputAbilityBinding.Value.AbilityCapabilityClass == CapabilityClass)
+    //         {
+    //             return;
+    //         }
+    //     }
+    //     CapComp.RemoveCapability(Abilities[Slot].AbilityCapabilityClass);
+    // }
 
     void UpdateActiveAbilities()
     {
         ActiveAbilities.Empty();
 
-        for (auto InputAbilityBinding : Abilities)
+        for (auto InputAbilityBinding : InputAbilityBindings)
         {
             FName InputAction = InputAbilityBinding.Key;
-            UAbilityData AbilityData = InputAbilityBinding.Value;
+            UAbilityCapability AbilityCapability = InputAbilityBinding.Value.GetDefaultObject();
 
-            if (IsValid(AbilityData) && CapComp.GetActionStatus(InputAction))
+            if (IsValid(AbilityCapability) && CapComp.GetActionStatus(InputAction))
             {
                 // Store the ability data under its capability type
-                ActiveAbilities.Add(AbilityData);
+                ActiveAbilities.Add(AbilityCapability);
             }
         }
     }
@@ -102,31 +101,13 @@ class UAbilityComponent : ULockableComponent
     {
         for (auto ActiveAbility : ActiveAbilities)
         {
-            if (Capability.IsA(ActiveAbility.AbilityCapabilityClass))
+            if (Capability.IsA(ActiveAbility.GetClass()))
             {
                 return true;
             }
         }
 
         return false;
-    }
-
-    UAbilityData GetAbilityData(UAbilityCapability Capability)
-    {
-        for (auto ActiveAbility : ActiveAbilities)
-        {
-            if (Capability.IsA(ActiveAbility.AbilityCapabilityClass))
-            {
-                return ActiveAbility;
-            }
-        }
-
-        return nullptr;
-    }
-
-    UTestAbilityData InitializeTestAbilityData(UTestAbilityData TestAbility, AHomseCharacterBase OuterOwner)
-    {
-        return Cast<UTestAbilityData>(DuplicateObject::DuplicateObjectBlueprint(TestAbility, OuterOwner));
     }
 
 };
