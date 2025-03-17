@@ -22,15 +22,11 @@ class UAddCameraOffsetAbilityModifier : UAbilityModifier
             return;
 
         bTriggered = false;
-
         CameraComp = UPlayerCameraComponent::Get(Ability.Owner);
+
         if (!IsValid(CameraComp))
             return;
-
-        if(AdditionPhase == EAbilityPhase::Activation)
-            ToggleOffset(true);
-        else if(RemovalPhase == EAbilityPhase::Activation)
-            ToggleOffset(false);
+        HandlePhaseSwitch(EAbilityPhase::Activation);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -38,31 +34,31 @@ class UAddCameraOffsetAbilityModifier : UAbilityModifier
     {
         if (!IsValid(CameraComp))
             return;
-
-        if(AdditionPhase == EAbilityPhase::Deactivation)
-            ToggleOffset(true);
-        else if(RemovalPhase == EAbilityPhase::Deactivation)
-            ToggleOffset(false);
+        HandlePhaseSwitch(EAbilityPhase::Deactivation);
     }
 
     UFUNCTION(BlueprintOverride)
-    void OnAbilityTick(UAbilityCapability Ability, float DeltaTime)
+    void OnAbilityWarmUpTick(UAbilityCapability Ability, float DeltaTime)
     {
         if (!IsValid(CameraComp))
             return;
+        HandlePhaseTick(EAbilityPhase::WarmUp);
+    }
 
-        if (AdditionPhase != EAbilityPhase::Tick || RemovalPhase != EAbilityPhase::Tick)
+    UFUNCTION(BlueprintOverride)
+    void OnAbilityActiveTick(UAbilityCapability Ability, float DeltaTime)
+    {
+        if (!IsValid(CameraComp))
             return;
+        HandlePhaseTick(EAbilityPhase::Active);
+    }
 
-        if(bTriggered)
+    UFUNCTION(BlueprintOverride)
+    void OnAbilityCooldownTick(UAbilityCapability Ability, float DeltaTime)
+    {
+        if (!IsValid(CameraComp))
             return;
-
-        if(AdditionPhase == EAbilityPhase::Tick)
-            ToggleOffset(true);
-        else if(RemovalPhase == EAbilityPhase::Tick)
-            ToggleOffset(false);
-
-        bTriggered = true;
+        HandlePhaseTick(EAbilityPhase::Cooldown);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -70,19 +66,35 @@ class UAddCameraOffsetAbilityModifier : UAbilityModifier
     {
         if (!IsValid(CameraComp))
             return;
+        HandlePhaseSwitch(EAbilityPhase::Fire);
+    }
 
-        if(AdditionPhase == EAbilityPhase::Fire)
+    void HandlePhaseSwitch(EAbilityPhase Phase)
+    {
+        if (AdditionPhase == Phase)
             ToggleOffset(true);
-        else if(RemovalPhase == EAbilityPhase::Fire)
+        else if (RemovalPhase == Phase)
             ToggleOffset(false);
+    }
+
+    void HandlePhaseTick(EAbilityPhase Phase)
+    {
+        if (AdditionPhase != Phase && RemovalPhase != Phase)
+            return;
+    
+        if (bTriggered)
+            return;
+
+        HandlePhaseSwitch(Phase);
+        bTriggered = true;
     }
 
     void ToggleOffset(bool bEnable)
     {
         if (bEnable)
-            CameraComp.RegisterOffset(this,Offset, LerpTime);
+            CameraComp.RegisterOffset(this, Offset, LerpTime);
         else
             CameraComp.UnregisterOffset(this);
     }
-    
+
 }
