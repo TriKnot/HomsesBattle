@@ -6,7 +6,6 @@ class UFireProjectileAbilityModifier  : UAbilityModifier
         if (!IsValid(Ability))
             return;
 
-        // Query for the specialized projectile context.
         UProjectileAbilityContext ProjectileContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
 
         for (AProjectileActor Projectile : ProjectileContext.Projectiles)
