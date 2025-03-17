@@ -48,3 +48,14 @@ class UChargedAbilityContext : UAbilityContext
         ChargeRatio = 0.0f;
     }
 }
+
+class UHitContext : UAbilityContext
+{
+    TArray<FHitResult> HitResults;
+
+    UFUNCTION(BlueprintOverride)
+    void Reset()
+    {
+        HitResults.Empty();
+    }
+}
