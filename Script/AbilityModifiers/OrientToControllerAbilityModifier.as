@@ -1,56 +1,66 @@
 class UOrientToControllerRotationAbilityModifier : UAbilityModifier
 {
-    UPROPERTY(EditAnywhere)
-    bool bOnActivation = false;
+    UPROPERTY(EditAnywhere, Category="Orientation")
+    bool bEnableOnActivation = false;
 
-    UPROPERTY(EditAnywhere)
-    bool bOnDeactivation = false;
+    UPROPERTY(EditAnywhere, Category="Orientation")
+    bool bEnableDuringWarmUp = false;
 
-    UPROPERTY(EditAnywhere)
-    bool bDuringTick = false;
+    UPROPERTY(EditAnywhere, Category="Orientation")
+    bool bEnableDuringActive = false;
 
-    UPROPERTY(EditAnywhere)
-    bool bOnFire = false;
+    UPROPERTY(EditAnywhere, Category="Orientation")
+    bool bEnableOnCooldown = false;
 
     UHomseMovementComponent MoveComp;
 
     UFUNCTION(BlueprintOverride)
     void OnAbilityActivate(UAbilityCapability Ability)
     {
-        if (!IsValid(Ability))
+        if(!IsValid(Ability))
             return;
 
         MoveComp = UHomseMovementComponent::Get(Ability.Owner);
-        if (!IsValid(MoveComp))
+        if(!IsValid(MoveComp))
             return;
         
-        MoveComp.SetOrientRotationToMovement(!bOnActivation);
+        MoveComp.SetOrientRotationToMovement(!bEnableOnActivation);
     }
 
     UFUNCTION(BlueprintOverride)
     void OnAbilityDeactivate(UAbilityCapability Ability)
     {
-        if (!IsValid(MoveComp))
+        if(!IsValid(MoveComp))
             return;
 
-        MoveComp.SetOrientRotationToMovement(!bOnDeactivation);
+        MoveComp.SetOrientRotationToMovement(true);
     }
 
     UFUNCTION(BlueprintOverride)
-    void OnAbilityTick(UAbilityCapability Ability, float DeltaTime)
+    void OnAbilityWarmUpTick(UAbilityCapability Ability, float DeltaTime)
     {
-        if (!IsValid(MoveComp))
+        if(!IsValid(MoveComp))
             return;
-        
-        MoveComp.SetOrientRotationToMovement(!bDuringTick);    
+
+        MoveComp.SetOrientRotationToMovement(!bEnableDuringWarmUp);        
     }
 
     UFUNCTION(BlueprintOverride)
-    void OnAbilityFire(UAbilityCapability Ability)
+    void OnAbilityActiveTick(UAbilityCapability Ability, float DeltaTime)
     {
-        if (!IsValid(MoveComp))
+        if(!IsValid(MoveComp))
             return;
 
-        MoveComp.SetOrientRotationToMovement(!bOnFire);    
+        MoveComp.SetOrientRotationToMovement(!bEnableDuringActive);
     }
+
+    UFUNCTION(BlueprintOverride)
+    void OnAbilityCooldownTick(UAbilityCapability Ability, float DeltaTime)
+    {
+        if(!IsValid(MoveComp))
+            return;
+
+        MoveComp.SetOrientRotationToMovement(!bEnableOnCooldown);
+    }
+
 }
