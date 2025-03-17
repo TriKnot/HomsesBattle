@@ -1,19 +1,19 @@
-class UProjectileInitialZVelocityChargedAbilityModifier : UAbilityModifier
+class UProjectileInitialZVelocityAbilityModifier : UAbilityModifier
 {
     UPROPERTY(EditAnywhere)
     bool bUseControllerZAngle = false;
 
     UFUNCTION(BlueprintOverride)
-    void OnAbilityTick(UAbilityCapability Ability, float DeltaTime)
+    void OnAbilityWarmUpTick(UAbilityCapability Ability, float DeltaTime)
     {
         if(!IsValid(Ability))
             return;
 
         UProjectileAbilityContext AbilityContext = Cast<UProjectileAbilityContext>(Ability.GetOrCreateAbilityContext(UProjectileAbilityContext::StaticClass()));
-        UChargedAbilityContext ChargedAbilityContext = Cast<UChargedAbilityContext>(Ability.GetOrCreateAbilityContext(UChargedAbilityContext::StaticClass()));
+        if (!IsValid(AbilityContext))
+            return;
 
         float VelocityMagnitude = AbilityContext.InitialVelocity.Size();
-        float ChargeRatio = ChargedAbilityContext.ChargeRatio;
         FVector NewInitialVelocity = AbilityContext.InitialVelocity.GetSafeNormal();
 
         if(bUseControllerZAngle)
@@ -26,9 +26,11 @@ class UProjectileInitialZVelocityChargedAbilityModifier : UAbilityModifier
             }
         }
 
-        NewInitialVelocity.Z += ChargeRatio;
-        NewInitialVelocity *= VelocityMagnitude;
+        float HorizontalMagnitude = FVector(NewInitialVelocity.X, NewInitialVelocity.Y, 0.0f).Size();
+        float AdditionalZ = HorizontalMagnitude;
+        NewInitialVelocity.Z += AdditionalZ;
 
+        NewInitialVelocity *= VelocityMagnitude;
         AbilityContext.InitialVelocity = NewInitialVelocity;
     }
 }
