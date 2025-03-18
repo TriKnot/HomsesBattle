@@ -2,10 +2,7 @@ class UAbilityComponent : ULockableComponent
 {    
     // Store assigned abilities by slot
     UPROPERTY()
-    TMap<FName, TSubclassOf<UAbilityCapability>> InputAbilityBindings;    
-
-    // Store active abilities by capability class
-    TArray<UAbilityCapability> ActiveAbilities;
+    TArray<TSubclassOf<UAbilityCapability>> Abilities;    
 
     AHomseCharacterBase HomseOwner;
     UCapabilityComponent CapComp;
@@ -29,9 +26,9 @@ class UAbilityComponent : ULockableComponent
 
     void InitStartingAbilities()
     {
-        for (auto Binding : InputAbilityBindings)
+        for (auto Ability : Abilities)
         {
-            CapComp.AddCapability(Binding.Value);
+            CapComp.AddCapability(Ability);
         }
     }
 
