@@ -42,10 +42,10 @@ class ULockComponentModifier : UAbilityModifier
     void OnAbilityWarmUpTick(UAbilityCapability Ability, float DeltaTime) override
     {
         if (!bLockOnWarmUp && bLocked)
-            UpdateLockState(Ability, true);
+            UpdateLockState(Ability, false);
 
         if (bLockOnWarmUp && !bLocked)
-            UpdateLockState(Ability, false);
+            UpdateLockState(Ability, true);
 
     }
 
@@ -53,10 +53,10 @@ class ULockComponentModifier : UAbilityModifier
     void OnAbilityActiveTick(UAbilityCapability Ability, float DeltaTime)
     {
         if(!bLockDuringActive && bLocked)
-            UpdateLockState(Ability, true);
+            UpdateLockState(Ability, false);
 
         if(bLockDuringActive && !bLocked)
-            UpdateLockState(Ability, false);
+            UpdateLockState(Ability, true);
     }
 
 
@@ -64,10 +64,10 @@ class ULockComponentModifier : UAbilityModifier
     void OnAbilityCooldownTick(UAbilityCapability Ability, float DeltaTime)
     {
         if(!bLockOnCooldown && bLocked)
-            UpdateLockState(Ability, true);
+            UpdateLockState(Ability, false);
 
         if(bLockOnCooldown && !bLocked)
-            UpdateLockState(Ability, false);
+            UpdateLockState(Ability, true);
     }
 
     UFUNCTION(BlueprintOverride)
