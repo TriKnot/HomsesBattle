@@ -114,13 +114,7 @@ class UAddHitBoxModifier : UAbilityModifier
     UFUNCTION(BlueprintOverride)
     void OnAbilityCooldownTick(UAbilityCapability Ability, float DeltaTime)
     {
-        if (bHitboxActive && IsValid(HitboxComponent))
-        {
-            HitboxComponent.OnComponentBeginOverlap.Unbind(this, n"OnHit");
-            bHitboxActive = false;
-            if(bDisplayHitBoxWhileActive)
-                HitboxComponent.SetHiddenInGame(true);
-        }
+        DeactivateHitBox();
     }
 
     UFUNCTION(BlueprintOverride)
@@ -137,6 +131,23 @@ class UAddHitBoxModifier : UAbilityModifier
         bHitboxActive = true;
         if(bDisplayHitBoxWhileActive)
             HitboxComponent.SetHiddenInGame(false);
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void OnAbilityDeactivate(UAbilityCapability Ability)
+    {
+        DeactivateHitBox();
+    }
+
+    void DeactivateHitBox()
+    {
+        if (bHitboxActive && IsValid(HitboxComponent))
+        {
+            HitboxComponent.OnComponentBeginOverlap.Unbind(this, n"OnHit");
+            bHitboxActive = false;
+            if(bDisplayHitBoxWhileActive)
+                HitboxComponent.SetHiddenInGame(true);
+        }
     }
 
     void ProcessInitialHits(UAbilityCapability Ability)
