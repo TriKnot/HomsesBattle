@@ -3,7 +3,7 @@ class ULockableComponent : UActorComponent
     TArray<UObject> LockingSources;
 
     UFUNCTION()
-    bool IsLocked(UObject IgnoredSource = nullptr) const
+    bool IsLocked(const UObject IgnoredSource = nullptr) const
     {
         for(UObject Source : LockingSources)
         {

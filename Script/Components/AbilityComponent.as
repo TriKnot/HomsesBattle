@@ -27,12 +27,6 @@ class UAbilityComponent : ULockableComponent
         InitStartingAbilities();
     }
 
-    UFUNCTION(BlueprintOverride)
-    void Tick(float DeltaSeconds)
-    {
-        UpdateActiveAbilities();
-    }
-
     void InitStartingAbilities()
     {
         for (auto Binding : InputAbilityBindings)
@@ -79,35 +73,5 @@ class UAbilityComponent : ULockableComponent
     //     }
     //     CapComp.RemoveCapability(Abilities[Slot].AbilityCapabilityClass);
     // }
-
-    void UpdateActiveAbilities()
-    {
-        ActiveAbilities.Empty();
-
-        for (auto InputAbilityBinding : InputAbilityBindings)
-        {
-            FName InputAction = InputAbilityBinding.Key;
-            UAbilityCapability AbilityCapability = InputAbilityBinding.Value.GetDefaultObject();
-
-            if (IsValid(AbilityCapability) && CapComp.GetActionStatus(InputAction))
-            {
-                // Store the ability data under its capability type
-                ActiveAbilities.Add(AbilityCapability);
-            }
-        }
-    }
-
-    bool IsAbilityActive(UAbilityCapability Capability)
-    {
-        for (auto ActiveAbility : ActiveAbilities)
-        {
-            if (Capability.IsA(ActiveAbility.GetClass()))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
 };

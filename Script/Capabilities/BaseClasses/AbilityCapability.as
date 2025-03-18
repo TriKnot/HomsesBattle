@@ -2,22 +2,27 @@ class UAbilityCapability : UCapability
 {
     default Priority = ECapabilityPriority::PostInput;
 
-    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability")
-    UAbilityTriggerModeModifier TriggerModeModifier;
-    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability")
+    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability|Conditions")
+    TArray<UAbilityCondition> EnableConditions;
+
+    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability|Conditions")
+    TArray<UAbilityCondition> DisableConditions;
+
+    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability|Conditions")
+    TArray<UAbilityCondition> FireConditions;
+
+    UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadWrite, Category="Ability|Modifiers")
     TArray<UAbilityModifier> Modifiers;
+
+    AHomseCharacterBase HomseOwner;
+    UAbilityComponent AbilityComp;
+
+    EActiveAbilityState AbilityState;
+    FTimer StateTimer;
 
     float WarmUpDuration = 0.0f;
     float ActiveDuration = 0.0f;
     float CooldownDuration = 0.0f;
-
-    FTimer StateTimer;
-    AHomseCharacterBase HomseOwner;
-    UAbilityComponent AbilityComp;
-    EActiveAbilityState AbilityState;
-
-    access TriggerProtection = protected, UAbilityTriggerModeModifier;
-    access:TriggerProtection bool bShouldFire;
     private bool bFired = false;
 
     private TArray<UAbilityContext> Contexts;
@@ -45,47 +50,34 @@ class UAbilityCapability : UCapability
     {
         for (UAbilityModifier Modifier : Modifiers)
         {
-            if(!IsValid(Modifier))
-                continue;
-
-            Modifier.TeardownModifier(this);
+            if(IsValid(Modifier))
+                Modifier.TeardownModifier(this);
         }
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate() 
     { 
-        return !AbilityComp.IsLocked() && AbilityComp.IsAbilityActive(this);
+        return AreConditionsMet(EnableConditions, false);
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate() 
     { 
-        return AbilityComp.IsLocked(this) || (bFired && StateTimer.IsFinished());
+        return AreConditionsMet(DisableConditions, true);
+    }
+
+    bool ShouldFire()
+    {
+        return AreConditionsMet(FireConditions, false);
     }
 
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
         bFired = false;
-        bShouldFire = false;
 
-        if(WarmUpDuration > 0.0f)
-        {
-            SwitchState(EActiveAbilityState::WarmUp);
-        }else
-        {
-            SwitchState(EActiveAbilityState::Active);
-            FireAbility();
-        }
-
-        for (UAbilityContext Context : Contexts)
-        {
-            if(!IsValid(Context))
-                continue;
-
-            Context.Reset();
-        }
+        ResetAllContexts();
 
         for (UAbilityModifier Modifier : Modifiers)
         {
@@ -95,10 +87,10 @@ class UAbilityCapability : UCapability
             Modifier.OnAbilityActivate(this);
         }
 
-        if (IsValid(TriggerModeModifier))
-        {
-            TriggerModeModifier.OnAbilityStart(this);
-        }
+        SwitchState(WarmUpDuration > 0.0f ? EActiveAbilityState::WarmUp : EActiveAbilityState::Active);
+
+        if (AbilityState == EActiveAbilityState::Active)
+            FireAbility();
 
     }
 
@@ -108,15 +100,15 @@ class UAbilityCapability : UCapability
         switch (AbilityState)
         {
             case EActiveAbilityState::WarmUp:
-                TickWarmUp(DeltaTime);
+                HandleWarmUpState(DeltaTime);
                 Print("Warming Up!", 0);
                 break;
             case EActiveAbilityState::Active:
-                TickActivePhase(DeltaTime);
+                HandleActiveState(DeltaTime);
                 Print("Active!", 0);
                 break;
             case EActiveAbilityState::Cooldown:
-                TickCooldown(DeltaTime);
+                HandleCooldownState(DeltaTime);
                 Print("Cooldown!", 0);
                 break;
             default:
@@ -130,22 +122,14 @@ class UAbilityCapability : UCapability
         }
     }
 
-    void TickWarmUp(float DeltaTime)
+    void HandleWarmUpState(float DeltaTime)
     {
-        if(!AbilityComp.IsAbilityActive(this))
-        {
-            TriggerModeModifier.OnAbilityReleased(this);
-        }
-
-        if(bShouldFire && !bFired)
+        if(ShouldFire() && !bFired)
         {
             FireAbility();
             SwitchState(EActiveAbilityState::Active);
             return;
         }
-
-        if (!TriggerModeModifier.IsA(UOnAbilityReleasedTriggerModeAbilityModifier) && StateTimer.IsFinished())
-            return;
 
         StateTimer.Tick(DeltaTime);
 
@@ -157,7 +141,7 @@ class UAbilityCapability : UCapability
 
     }
 
-    void TickActivePhase(float DeltaTime)
+    void HandleActiveState(float DeltaTime)
     {
         StateTimer.Tick(DeltaTime);
 
@@ -173,7 +157,7 @@ class UAbilityCapability : UCapability
         }
     }
 
-    void TickCooldown(float DeltaTime)
+    void HandleCooldownState(float DeltaTime)
     {
         StateTimer.Tick(DeltaTime);
 
@@ -189,10 +173,8 @@ class UAbilityCapability : UCapability
     {
         for (UAbilityModifier Modifier : Modifiers)
         {
-            if(!IsValid(Modifier))
-                continue;
-
-            Modifier.OnAbilityDeactivate(this);
+            if(IsValid(Modifier))
+                Modifier.OnAbilityDeactivate(this);
         }        
     }
 
@@ -201,21 +183,48 @@ class UAbilityCapability : UCapability
     {
         for (UAbilityModifier Modifier : Modifiers)
         {
-            if(!IsValid(Modifier))
-                continue;
-
-            Modifier.ModifyFire(this);
+            if(IsValid(Modifier))
+                Modifier.ModifyFire(this);
         }
 
         for (UAbilityModifier Modifier : Modifiers)
         {
-            if(!IsValid(Modifier))
-                continue;
-
-            Modifier.OnAbilityFire(this);
+            if(IsValid(Modifier))
+                Modifier.OnAbilityFire(this);
         }
 
         bFired = true;
+    }
+
+    private void SwitchState(EActiveAbilityState NewState)
+    {
+        switch (NewState)
+        {
+            case EActiveAbilityState::WarmUp:
+                StateTimer.SetDuration(WarmUpDuration);
+                break;
+            case EActiveAbilityState::Active:
+                StateTimer.SetDuration(ActiveDuration);
+                break;
+            case EActiveAbilityState::Cooldown:
+                StateTimer.SetDuration(CooldownDuration);
+                break;
+            default:
+                break;
+        }
+
+        AbilityState = NewState;
+        StateTimer.Reset();
+        StateTimer.Start();
+    }
+
+    void ResetAllContexts()
+    {
+        for (UAbilityContext Context : Contexts)
+        {
+            if (IsValid(Context))
+                Context.Reset();
+        }
     }
 
     UAbilityContext& GetOrCreateAbilityContext(TSubclassOf<UAbilityContext> ContextClass)
@@ -243,26 +252,28 @@ class UAbilityCapability : UCapability
         return false;
     }
 
-    private void SwitchState(EActiveAbilityState NewState)
+    bool AreConditionsMet(const TArray<UAbilityCondition>&in Conditions, bool bDefaultValue = true) const
     {
-        switch (NewState)
+        if(Conditions.IsEmpty())
+            return bDefaultValue;
+
+        bool bResultAND = true; 
+
+        for (const UAbilityCondition Condition : Conditions)
         {
-            case EActiveAbilityState::WarmUp:
-                StateTimer.SetDuration(WarmUpDuration);
-                break;
-            case EActiveAbilityState::Active:
-                StateTimer.SetDuration(ActiveDuration);
-                break;
-            case EActiveAbilityState::Cooldown:
-                StateTimer.SetDuration(CooldownDuration);
-                break;
-            default:
-                break;
+            if (!IsValid(Condition))
+                continue;
+
+            bool bConditionMet = Condition.IsConditionMet(this);
+            bConditionMet = Condition.bInvertCondition ? !bConditionMet : bConditionMet;
+
+            if (Condition.EvaluationType == EConditionEvaluationType::ECE_AND) 
+                bResultAND = bConditionMet && bResultAND;
+            else if(Condition.EvaluationType == EConditionEvaluationType::ECE_OR && bConditionMet) 
+                return true;
         }
 
-        AbilityState = NewState;
-        StateTimer.Reset();
-        StateTimer.Start();
+        return bResultAND;
     }
 
 };
