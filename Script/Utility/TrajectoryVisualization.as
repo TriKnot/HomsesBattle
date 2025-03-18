@@ -4,8 +4,9 @@ class UTrajectoryVisualization : UObject
     UStaticMesh TrajectoryMesh;
     UMaterialInterface TrajectoryMaterial;
     float GravityMult;
-    float DesiredMeshSegmentLength = 20.0f;
-    float GapBetweenSegments = 20.0f;
+    float DesiredMeshSegmentLength;
+    float GapBetweenSegments;
+    FVector2D DesiredMeshScale;
 
     // Simulation Parameters
     float DesiredStepsPerSec;
@@ -23,7 +24,7 @@ class UTrajectoryVisualization : UObject
 
     // Initialize the trajectory visualization
     void Init(AActor OwningActor, UStaticMesh Mesh, UMaterialInterface Material, float InGravityMultiplier,
-              float InDesiredStepsPerSec, float InDesiredMeshSegmentLength = 1.0f, float InGapBetweenSegments = 0.0f)
+              float InDesiredStepsPerSec, float InDesiredMeshSegmentLength = 1.0f, float InGapBetweenSegments = 0.0f, FVector2D InDesiredMeshScale = FVector2D(0.1f, 0.1f))
     {
         Owner = OwningActor;
         TrajectoryMesh = Mesh;
@@ -32,6 +33,7 @@ class UTrajectoryVisualization : UObject
         DesiredStepsPerSec = InDesiredStepsPerSec;
         DesiredMeshSegmentLength = InDesiredMeshSegmentLength;
         GapBetweenSegments = InGapBetweenSegments;
+        DesiredMeshScale = InDesiredMeshScale;
 
         // Create the spline component and attach to owner
         TrajectorySpline = USplineComponent::Create(Owner);
@@ -176,16 +178,18 @@ class UTrajectoryVisualization : UObject
             if(!IsValid(SplineMesh))
                 continue;
 
-            FVector StartPos = TrajectorySpline.GetLocationAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::Local);
+            FVector PositionOffset = FVector(0, DesiredMeshScale.X, DesiredMeshScale.Y) * TrajectoryMesh.GetBounds().BoxExtent;
+
+            FVector StartPos = TrajectorySpline.GetLocationAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::Local) - PositionOffset;
             FVector StartTangent = TrajectorySpline.GetTangentAtDistanceAlongSpline(StartDistance, ESplineCoordinateSpace::Local);
-            FVector EndPos = TrajectorySpline.GetLocationAtDistanceAlongSpline(EndDistance, ESplineCoordinateSpace::Local);
+            FVector EndPos = TrajectorySpline.GetLocationAtDistanceAlongSpline(EndDistance, ESplineCoordinateSpace::Local) - PositionOffset;
             FVector EndTangent = TrajectorySpline.GetTangentAtDistanceAlongSpline(EndDistance, ESplineCoordinateSpace::Local);
 
             SplineMesh.AttachToComponent(TrajectorySpline);
             SplineMesh.SetMobility(EComponentMobility::Movable);
             SplineMesh.SetCollisionEnabled(ECollisionEnabled::NoCollision);
-            SplineMesh.SetStartScale(FVector2D(0.1f, 0.1f));
-            SplineMesh.SetEndScale(FVector2D(0.1f, 0.1f));
+            SplineMesh.SetStartScale(DesiredMeshScale);
+            SplineMesh.SetEndScale(DesiredMeshScale);
             SplineMesh.SetStaticMesh(TrajectoryMesh);
             SplineMesh.SetMaterial(0, TrajectoryMaterial);
             SplineMesh.SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);

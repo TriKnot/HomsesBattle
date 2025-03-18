@@ -18,6 +18,9 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
     UPROPERTY(EditAnywhere, Category="Visual")
     float GapLengthBetweenMeshSegements = 0.0f;
 
+    UPROPERTY(EditAnywhere, Category="Visual")
+    FVector2D DesiredMeshScale = FVector2D(0.1f, 0.1f);
+
     UTrajectoryVisualization TrajectoryVisualization;
     UProjectileAbilityContext AbilityContext;
 
@@ -31,7 +34,7 @@ class UProjectileDisplayTrajectoryAbilityModifier : UAbilityModifier
         if (IsValid(TrajectoryVisualization))
         {
             TrajectoryVisualization.Init(Ability.Owner, TrajectoryMesh, TrajectoryMaterial, GravityEffectMultiplier, 
-                DesiredStepsPerSec, MeshSegmentLength, GapLengthBetweenMeshSegements);
+                DesiredStepsPerSec, MeshSegmentLength, GapLengthBetweenMeshSegements, DesiredMeshScale);
         }
     }
 
