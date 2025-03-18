@@ -1,3 +1,4 @@
+UCLASS(Abstract)
 class UAbilityCapability : UCapability
 {
     default Priority = ECapabilityPriority::PostInput;
