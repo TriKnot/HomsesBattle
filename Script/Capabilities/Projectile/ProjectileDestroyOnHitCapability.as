@@ -15,7 +15,9 @@ class UProjectileDestroyOnHitCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return ProjectileOwner.bActivated && DamageComponent.MovementHitResult.bBlockingHit;
+        return ProjectileOwner.bActivated 
+            && DamageComponent.MovementHitResult.bBlockingHit
+            && DamageComponent.bAllowDestroy;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -29,5 +31,4 @@ class UProjectileDestroyOnHitCapability : UCapability
     {
         ProjectileOwner.DestroyActor();
     }
-
 };
