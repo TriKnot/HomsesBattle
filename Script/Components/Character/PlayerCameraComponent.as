@@ -40,7 +40,7 @@ class UPlayerCameraComponent : UActorComponent
 
     void AddCameraOffset(FVector NewOffset)
     {
-        CameraComp.AddRelativeLocation(NewOffset);
+        SpringArmComp.AddRelativeLocation(NewOffset);
     }
 
     void EnableCameraDrag(bool bEnable)
@@ -50,7 +50,7 @@ class UPlayerCameraComponent : UActorComponent
 
     FVector GetCameraOffset() const property
     {
-        return CameraComp.GetRelativeLocation();
+        return SpringArmComp.GetRelativeLocation() + CameraComp.GetRelativeLocation();
     }
 };
 
