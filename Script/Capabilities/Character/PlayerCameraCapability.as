@@ -68,9 +68,7 @@ class UPlayerCameraCapability : UCapability
         for (auto& Pair : CameraComp.ActiveOffsets)
         {
             FCameraOffsetTarget& Offset = Pair.Value;
-
-            FVector OffsetContribution = Offset.GetDeltaOffset(DeltaTime);
-            TotalOffset += OffsetContribution;
+            TotalOffset += Offset.GetDeltaOffset(DeltaTime);
         }
 
         // Tick Reverting backwards
