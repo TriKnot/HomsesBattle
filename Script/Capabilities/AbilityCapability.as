@@ -102,15 +102,15 @@ class UAbilityCapability : UCapability
         {
             case EActiveAbilityState::WarmUp:
                 HandleWarmUpState(DeltaTime);
-                Print("Warming Up!", 0);
+                Print(f"Warming Up {GetName()}!", 0);
                 break;
             case EActiveAbilityState::Active:
                 HandleActiveState(DeltaTime);
-                Print("Active!", 0);
+                Print(f"Active! {GetName()}", 0);
                 break;
             case EActiveAbilityState::Cooldown:
                 HandleCooldownState(DeltaTime);
-                Print("Cooldown!", 0);
+                Print(f"Cooldown! {GetName()}", 0);
                 break;
             default:
                 break;
