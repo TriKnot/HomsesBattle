@@ -3,18 +3,19 @@ class UProjectileBounceCapability : UCapability
     default Priority = ECapabilityPriority::PreMovement;
 
     AProjectileActor ProjectileOwner;
-    UProjectileDamageComponent DamageComponent;
+    UProjectileCollisionComponent CollisionComponent;
+    UProjectileBounceComponent BounceComponent;
     UProjectileMoveComponent MoveComponent;
 
     int CurrentBounceCount = 0;
-
     FTimer CooldownTimer;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
         ProjectileOwner = Cast<AProjectileActor>(Owner);
-        DamageComponent = UProjectileDamageComponent::GetOrCreate(ProjectileOwner);
+        CollisionComponent = UProjectileCollisionComponent::GetOrCreate(ProjectileOwner);
+        BounceComponent = UProjectileBounceComponent::GetOrCreate(ProjectileOwner);
         MoveComponent = UProjectileMoveComponent::GetOrCreate(ProjectileOwner);
     }
 
@@ -22,8 +23,8 @@ class UProjectileBounceCapability : UCapability
     bool ShouldActivate()
     {
         return ProjectileOwner.bActivated 
-            && DamageComponent.MovementHitResult.bBlockingHit
-            && (CurrentBounceCount < MoveComponent.MaxBounces);
+            && CollisionComponent.MovementHitResult.bBlockingHit
+            && (CurrentBounceCount < BounceComponent.MaxBounces);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -37,25 +38,25 @@ class UProjectileBounceCapability : UCapability
     {
         // Reflect projectile velocity
         FVector IncomingVelocity = MoveComponent.ProjectileVelocity;
-        FVector ReflectedVelocity = IncomingVelocity.MirrorByVector(DamageComponent.MovementHitResult.Normal);
-        ReflectedVelocity *= 1 - MoveComponent.BounceEnergyLoss;
+        FVector ReflectedVelocity = IncomingVelocity.MirrorByVector(CollisionComponent.MovementHitResult.Normal);
+        ReflectedVelocity *= BounceComponent.EnergyOnBounceMultiplier;
         MoveComponent.ProjectileVelocity = ReflectedVelocity;
 
         CurrentBounceCount++;
 
         // Slight position adjustment to avoid repeated collisions
-        FVector AdjustedPosition = ProjectileOwner.GetActorLocation() + DamageComponent.MovementHitResult.Normal * 2.f;
+        FVector AdjustedPosition = ProjectileOwner.GetActorLocation() + CollisionComponent.MovementHitResult.Normal * 2.f;
         ProjectileOwner.SetActorLocation(AdjustedPosition);
 
-        if(CurrentBounceCount < MoveComponent.MaxBounces)
+        if(CurrentBounceCount < BounceComponent.MaxBounces)
         {
-            CooldownTimer.SetDuration(0.1f);
+            CooldownTimer.SetDuration(0.01f);
             CooldownTimer.Reset();
             CooldownTimer.Start();
         }
         else
         {
-            DamageComponent.bAllowDestroy = true;
+            CollisionComponent.bAllowDestroy = true;
         }
     }
 

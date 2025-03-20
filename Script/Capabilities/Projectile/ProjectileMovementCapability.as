@@ -4,14 +4,14 @@ class UProjectileMovementCapability : UCapability
 
     AProjectileActor ProjectileOwner;
     UProjectileMoveComponent MoveComponent;
-    UProjectileDamageComponent DamageComponent;
+    UProjectileCollisionComponent CollisionComponent;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
         ProjectileOwner = Cast<AProjectileActor>(Owner);
         MoveComponent = UProjectileMoveComponent::GetOrCreate(ProjectileOwner);
-        DamageComponent = UProjectileDamageComponent::GetOrCreate(ProjectileOwner);
+        CollisionComponent = UProjectileCollisionComponent::GetOrCreate(ProjectileOwner);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -30,6 +30,6 @@ class UProjectileMovementCapability : UCapability
     void TickActive(float DeltaTime)
     {
         FVector NewLocation = Owner.GetActorLocation() + (MoveComponent.ProjectileVelocity * DeltaTime);
-        ProjectileOwner.SetActorLocation(NewLocation, true, DamageComponent.MovementHitResult, false);
+        ProjectileOwner.SetActorLocation(NewLocation, true, CollisionComponent.MovementHitResult, false);
     }
 };

@@ -4,6 +4,4 @@ class UProjectileMoveComponent : UActorComponent
     UProjectileGravityData GravityData;
     float DragCoefficient;
     float FluidDensity;
-    int MaxBounces;
-    float BounceEnergyLoss;
 };

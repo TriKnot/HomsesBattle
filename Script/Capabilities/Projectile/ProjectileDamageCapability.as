@@ -3,22 +3,23 @@ class UProjectileDamageCapability : UCapability
     default Priority = ECapabilityPriority::PostMovement;
 
     AProjectileActor ProjectileOwner;
-    UProjectileMoveComponent MoveComponent;
     UProjectileDamageComponent DamageComponent;
+    UProjectileCollisionComponent CollisionComponent;
     TArray<AActor> DamagedActors;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
         ProjectileOwner = Cast<AProjectileActor>(Owner);
-        MoveComponent = UProjectileMoveComponent::GetOrCreate(ProjectileOwner);
         DamageComponent = UProjectileDamageComponent::GetOrCreate(ProjectileOwner);
+        CollisionComponent = UProjectileCollisionComponent::GetOrCreate(ProjectileOwner);
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return ProjectileOwner.bActivated && DamageComponent.MovementHitResult.bBlockingHit;
+        return ProjectileOwner.bActivated 
+            && CollisionComponent.MovementHitResult.bBlockingHit;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -30,14 +31,14 @@ class UProjectileDamageCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
-        OnHit(DamageComponent.MovementHitResult.GetActor());
+        OnHit(CollisionComponent.MovementHitResult.GetActor());
     }
     
 
     UFUNCTION(BlueprintEvent)
     void OnHit(AActor HitActor) 
     {
-        if(DamageComponent.IgnoredActors.Contains(HitActor)
+        if(CollisionComponent.IgnoredActors.Contains(HitActor)
         || DamagedActors.Contains(HitActor))
             return;
 

@@ -1,23 +1,23 @@
 class UProjectileDestroyOnHitCapability : UCapability
 {
-    default Priority = ECapabilityPriority::PostInput;
+    default Priority = ECapabilityPriority::MAX;
 
     AProjectileActor ProjectileOwner;
-    UProjectileDamageComponent DamageComponent;
+    UProjectileCollisionComponent CollisionComponent;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
         ProjectileOwner = Cast<AProjectileActor>(Owner);
-        DamageComponent = UProjectileDamageComponent::GetOrCreate(ProjectileOwner);
+        CollisionComponent = UProjectileCollisionComponent::GetOrCreate(ProjectileOwner);
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
         return ProjectileOwner.bActivated 
-            && DamageComponent.MovementHitResult.bBlockingHit
-            && DamageComponent.bAllowDestroy;
+            && CollisionComponent.MovementHitResult.bBlockingHit
+            && CollisionComponent.bAllowDestroy;
     }
 
     UFUNCTION(BlueprintOverride)
