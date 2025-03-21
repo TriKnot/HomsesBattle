@@ -29,6 +29,7 @@ class UProjectileDestroyOnHitCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void OnActivate()
     {
+        ProjectileOwner.bActivated = false;
         ProjectileOwner.DestroyActor();
     }
 };
