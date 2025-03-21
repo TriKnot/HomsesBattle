@@ -26,4 +26,8 @@ class UProjectileMoveComponent : UActorComponent
     // Drag data
     float DragCoefficient;
     float FluidDensity;
+
+    // Initial offset data
+    FVector InitialOffset;
+    float OffsetLerpTime;
 }
