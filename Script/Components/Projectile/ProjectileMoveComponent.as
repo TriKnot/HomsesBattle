@@ -7,13 +7,23 @@ class UProjectileMoveComponent : UActorComponent
     UProjectileGravityData GravityData;
 
     // Acceleration over time data
-    UCurveFloat AccelerationCurve = nullptr;
-    float TotalAccelerationDuration = 0.f;      
-    float AccelerationScale = 1.f;  
-    bool bOscillateAcceleration = false;
-    float AccelerationOscillationPeriod = 1.f;  
+    UCurveFloat AccelerationCurve;
+    float TotalAccelerationDuration;      
+    float AccelerationScale;  
+    bool bOscillateAcceleration;
+    float AccelerationOscillationPeriod;  
+
+    // Oschillation data
+    UCurveFloat HorizontalOscillationCurve;
+    float HorizontalOscillationPeriod;
+    float HorizontalOscillationScale; 
+
+    // Vertical oscillation
+    UCurveFloat VerticalOscillationCurve;
+    float VerticalOscillationPeriod;
+    float VerticalOscillationScale; 
 
     // Drag data
     float DragCoefficient;
     float FluidDensity;
-};
+}
