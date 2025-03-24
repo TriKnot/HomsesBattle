@@ -31,7 +31,7 @@ class UProjectileOscillationCapability : UCapability
     void TickActive(float DeltaTime)
     {
         if(CollisionComponent.MovementHitResult.bBlockingHit)
-            ResetOscillationsToZero();
+            ResetOscillations();
 
         FVector TotalOscillationOffset = FVector::ZeroVector;
 
@@ -61,7 +61,7 @@ class UProjectileOscillationCapability : UCapability
         MoveComponent.AccumulatedFrameOffsets += TotalOscillationOffset;
     }
 
-    void ResetOscillationsToZero()
+    void ResetOscillations()
     {
         for (FOscillationData& Oscillation : MoveComponent.OscillationDatas)
         {
