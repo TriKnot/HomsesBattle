@@ -2,6 +2,7 @@ class UProjectileMoveComponent : UActorComponent
 {
     // Base velocity of the projectile
     FVector ProjectileVelocity;
+    FVector AccumulatedFrameOffsets;
 
     // Gravity data
     UProjectileGravityData GravityData;
@@ -13,15 +14,8 @@ class UProjectileMoveComponent : UActorComponent
     bool bOscillateAcceleration;
     float AccelerationOscillationPeriod;  
 
-    // Oschillation data
-    UCurveFloat HorizontalOscillationCurve;
-    float HorizontalOscillationPeriod;
-    float HorizontalOscillationScale; 
-
-    // Vertical oscillation
-    UCurveFloat VerticalOscillationCurve;
-    float VerticalOscillationPeriod;
-    float VerticalOscillationScale; 
+    // Oscillation data
+    TArray<FOscillationData> OscillationDatas;
 
     // Drag data
     float DragCoefficient;

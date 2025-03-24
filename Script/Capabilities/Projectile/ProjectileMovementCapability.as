@@ -29,7 +29,11 @@ class UProjectileMovementCapability : UCapability
     UFUNCTION(BlueprintOverride)
     void TickActive(float DeltaTime)
     {
-        FVector NewLocation = Owner.GetActorLocation() + (MoveComponent.ProjectileVelocity * DeltaTime);
+        FVector MovementDelta = MoveComponent.ProjectileVelocity * DeltaTime + MoveComponent.AccumulatedFrameOffsets;
+        FVector NewLocation = Owner.GetActorLocation() + MovementDelta;
+
         ProjectileOwner.SetActorLocation(NewLocation, true, CollisionComponent.MovementHitResult, false);
+
+        MoveComponent.AccumulatedFrameOffsets = FVector::ZeroVector;
     }
 };

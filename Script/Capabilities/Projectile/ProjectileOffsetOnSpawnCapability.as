@@ -1,6 +1,6 @@
 class UProjectileOffsetOnSpawnCapability : UCapability
 {
-    default Priority = ECapabilityPriority::Movement;
+    default Priority = ECapabilityPriority::PreMovement;
 
     AProjectileActor ProjectileOwner;
     UProjectileMoveComponent MoveComponent;
@@ -54,12 +54,11 @@ class UProjectileOffsetOnSpawnCapability : UCapability
         FVector FrameOffsetDistance = Math::Lerp(FVector::ZeroVector, MoveComponent.InitialOffset, OffsetLerpAlpha) - TotalOffsetDistance;
         TotalOffsetDistance += FrameOffsetDistance;
 
-        FVector ActorLocation = ProjectileOwner.GetActorLocation();
-        FVector NewLocation = ActorLocation 
-            + RightDir * FrameOffsetDistance.X 
+        FVector NewOffset = 
+            RightDir * FrameOffsetDistance.X 
             + ForwardDir * FrameOffsetDistance.Y 
             + UpDir * FrameOffsetDistance.Z;
         
-        ProjectileOwner.SetActorLocation(NewLocation);     
+        MoveComponent.AccumulatedFrameOffsets += NewOffset;
     }
 };

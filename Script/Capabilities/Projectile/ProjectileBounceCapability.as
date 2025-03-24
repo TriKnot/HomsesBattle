@@ -1,6 +1,6 @@
 class UProjectileBounceCapability : UCapability
 {
-    default Priority = ECapabilityPriority::PreMovement;
+    default Priority = ECapabilityPriority::PostMovement;
 
     AProjectileActor ProjectileOwner;
     UProjectileCollisionComponent CollisionComponent;
@@ -41,16 +41,18 @@ class UProjectileBounceCapability : UCapability
         FVector ReflectedVelocity = IncomingVelocity.MirrorByVector(CollisionComponent.MovementHitResult.Normal);
         ReflectedVelocity *= BounceComponent.EnergyOnBounceMultiplier;
         MoveComponent.ProjectileVelocity = ReflectedVelocity;
+        ProjectileOwner.SetActorRotation(ReflectedVelocity.ToOrientationRotator());
 
         CurrentBounceCount++;
 
         // Slight position adjustment to avoid repeated collisions
-        FVector AdjustedPosition = ProjectileOwner.GetActorLocation() + CollisionComponent.MovementHitResult.Normal * 2.f;
+        FVector HitPoint = CollisionComponent.MovementHitResult.ImpactPoint;
+        FVector AdjustedPosition = HitPoint + CollisionComponent.MovementHitResult.Normal * 2.0f;
         ProjectileOwner.SetActorLocation(AdjustedPosition);
 
         if(CurrentBounceCount < BounceComponent.MaxBounces)
         {
-            CooldownTimer.SetDuration(0.01f);
+            CooldownTimer.SetDuration(0.01f); // ~1 frame
             CooldownTimer.Reset();
             CooldownTimer.Start();
         }
