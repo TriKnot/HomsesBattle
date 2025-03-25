@@ -51,6 +51,13 @@ class AHomseCharacterBase : ACharacter
     void BeginPlay()
     {
         CapsuleComponent.SimulatePhysics = false;
+        UEntityRegistrySubsystem::Get().RegisterHomse(this);
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void EndPlay(EEndPlayReason EndPlayReason)
+    {
+        UEntityRegistrySubsystem::Get().UnregisterHomse(this);
     }
 
 }
