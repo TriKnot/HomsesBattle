@@ -32,6 +32,10 @@ class UMovementCapability : UCapability
         FRotator ControlRotation = HomseOwner.GetControlRotation();
         FVector Forward = ControlRotation.GetForwardVector();
         FVector Right = ControlRotation.GetRightVector();
+        Forward.Z = 0.0f;
+        Right.Z = 0.0f;
+        Forward.Normalize();
+        Right.Normalize();
         FVector2D MovementInput = CapabilityComp.MovementInput;
 
         MoveComp.AddMovementInput(Forward, MovementInput.Y, false);
