@@ -79,8 +79,28 @@ class UProjectileTrackingCapability : UCapability
 
         MoveComponent.ProjectileVelocity = NewDirection * ProjectileSpeed;
         
-        System::DrawDebugBox(AimLocation, FVector(25.f), FLinearColor::Blue);
-        System::DrawDebugLine(ProjectileLocation, AimLocation, FLinearColor::Blue);
+        // Debug
+        // Draw Difference between predicted and actual aim location
+        // System::DrawDebugArrow(ProjectileLocation, ProjectileLocation + NewDirection * 500.f, 10.f, FLinearColor::Green);
+        // System::DrawDebugArrow(ProjectileLocation, ProjectileLocation + MoveComponent.ProjectileVelocity.GetSafeNormal() * 500.f, 10.f, FLinearColor::Blue);
+
+        // Draw the aim location
+        // System::DrawDebugBox(AimLocation, FVector(25.f), FLinearColor::Blue);
+        // System::DrawDebugLine(ProjectileLocation, AimLocation, FLinearColor::Blue);
+    }
+
+    void FindTarget()
+    {
+        float LargestTrackingRadius = 0.f;
+        for (const FTrackingData& Data : TrackingComponent.TrackingData)
+        {
+            LargestTrackingRadius = Math::Max(LargestTrackingRadius, Data.MaxActivationDistance);
+        }
+
+        TargetActor = UEntityRegistrySubsystem::Get()
+                        .GetClosestHomseTo(ProjectileOwner, LargestTrackingRadius, TrackingComponent.IgnoredActors);
+
+        TrackingPredictor.SetTarget(TargetActor);
     }
 
     bool CalculateLeadPrediction( const FVector& ProjectileLoc, float ProjectileSpeed, FVector& OutAimLoc)
@@ -150,29 +170,18 @@ class UProjectileTrackingCapability : UCapability
         return RotateDirectionTowards(CurrentDir, TargetDir, MaxTurnThisFrame);
     }
 
-    void FindTarget()
+    FVector RotateDirectionTowards(const FVector& FromDir, const FVector& ToDir, float MaxDegrees) const
     {
-        float LargestTrackingRadius = 0.f;
-        for (const FTrackingData& Data : TrackingComponent.TrackingData)
-        {
-            LargestTrackingRadius = Math::Max(LargestTrackingRadius, Data.MaxActivationDistance);
-        }
+        // Convert angular distance to degrees!
+        float AngleBetweenRadians = FromDir.AngularDistance(ToDir);
+        float AngleBetweenDegrees = Math::RadiansToDegrees(AngleBetweenRadians);
 
-        TargetActor = UEntityRegistrySubsystem::Get()
-                        .GetClosestHomseTo(ProjectileOwner, LargestTrackingRadius, TrackingComponent.IgnoredActors);
-
-        TrackingPredictor.SetTarget(TargetActor);
-    }
-
-    FVector RotateDirectionTowards( const FVector& FromDir, const FVector& ToDir, float MaxDegrees) const
-    {
-        float AngleBetween = FromDir.AngularDistance(ToDir);
-        if (AngleBetween < KINDA_SMALL_NUMBER)
+        if (AngleBetweenDegrees < KINDA_SMALL_NUMBER)
             return ToDir;
 
-        float RotationAngle = Math::Min(AngleBetween, MaxDegrees);
+        float RotationAngleDegrees = Math::Min(AngleBetweenDegrees, MaxDegrees);
         FVector RotationAxis = FromDir.CrossProduct(ToDir).GetSafeNormal();
-        FQuat RotationQuat(RotationAxis, Math::DegreesToRadians(RotationAngle));
+        FQuat RotationQuat(RotationAxis, Math::DegreesToRadians(RotationAngleDegrees));
 
         return RotationQuat.RotateVector(FromDir).GetSafeNormal();
     }
