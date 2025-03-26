@@ -167,23 +167,7 @@ class UProjectileTrackingCapability : UCapability
         float AvgTurnRate = CombinedTurnRate / TotalWeight;
         float MaxTurnThisFrame = AvgTurnRate * DeltaTime;
 
-        return RotateDirectionTowards(CurrentDir, TargetDir, MaxTurnThisFrame);
-    }
-
-    FVector RotateDirectionTowards(const FVector& FromDir, const FVector& ToDir, float MaxDegrees) const
-    {
-        // Convert angular distance to degrees!
-        float AngleBetweenRadians = FromDir.AngularDistance(ToDir);
-        float AngleBetweenDegrees = Math::RadiansToDegrees(AngleBetweenRadians);
-
-        if (AngleBetweenDegrees < KINDA_SMALL_NUMBER)
-            return ToDir;
-
-        float RotationAngleDegrees = Math::Min(AngleBetweenDegrees, MaxDegrees);
-        FVector RotationAxis = FromDir.CrossProduct(ToDir).GetSafeNormal();
-        FQuat RotationQuat(RotationAxis, Math::DegreesToRadians(RotationAngleDegrees));
-
-        return RotationQuat.RotateVector(FromDir).GetSafeNormal();
+        return CurrentDir.RotateDirectionVectorTowards(TargetDir, MaxTurnThisFrame);
     }
 
     bool GetLeadPredictionTime( const FVector& ProjectileLocation, float ProjectileSpeed, const FVector& TargetLocation,
