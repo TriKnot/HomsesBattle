@@ -1,7 +1,7 @@
 # Homses Battle
 
-![Unreal Engine](https://img.shields.io/badge/Engine-UnrealEngine--AngelScript--5.4.2-blue)
-![AngelScript](https://img.shields.io/badge/Scripting-AngelScript-orange)
+[![Unreal Engine](https://img.shields.io/badge/Engine-UnrealEngine--AngelScript--5.4.2-blue)](https://angelscript.hazelight.se/)
+[![AngelScript](https://img.shields.io/badge/Scripting-AngelScript-orange)](https://www.angelcode.com/angelscript/)
 
 Homses Battle is an action-oriented game developed using Hazelight's modified version of Unreal Engine 5 with AngelScript support. Currently, the project is focused on developing robust character gameplay mechanics. The plan is to further explore sophisticated AI behaviors at a later stage once a solid foundation is established.
 
