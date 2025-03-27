@@ -88,10 +88,7 @@ class UAbilityCapability : UCapability
             Modifier.OnAbilityActivate(this);
         }
 
-        SwitchState(WarmUpDuration > 0.0f ? EActiveAbilityState::WarmUp : EActiveAbilityState::Active);
-
-        if (AbilityState == EActiveAbilityState::Active)
-            FireAbility();
+        SwitchState(EActiveAbilityState::WarmUp);
 
     }
 
@@ -125,12 +122,6 @@ class UAbilityCapability : UCapability
 
     void HandleWarmUpState(float DeltaTime)
     {
-        if(ShouldFire() && !bFired)
-        {
-            FireAbility();
-            SwitchState(EActiveAbilityState::Active);
-            return;
-        }
 
         StateTimer.Tick(DeltaTime);
 
@@ -140,6 +131,12 @@ class UAbilityCapability : UCapability
                 Modifier.OnAbilityWarmUpTick(this, DeltaTime);
         }
 
+        if(ShouldFire() && !bFired)
+        {
+            FireAbility();
+            SwitchState(EActiveAbilityState::Active);
+            return;
+        }
     }
 
     void HandleActiveState(float DeltaTime)
