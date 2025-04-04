@@ -8,7 +8,7 @@ public class HomseBattleRoyal : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "NavigationSystem" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "NavigationSystem", "AngelscriptCode", "AngelscriptCode", "AngelscriptCode" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule", "NavigationSystem" });
 
