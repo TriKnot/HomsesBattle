@@ -27,6 +27,8 @@ class UPlayerCameraCapability : UCapability
         CameraComp.CameraComp.AttachToComponent(CameraComp.SpringArmComp);
         CameraComp.CameraComp.ProjectionMode = ECameraProjectionMode::Perspective;
         CameraComp.CameraComp.FieldOfView = 90.0f;
+        CameraComp.CameraComp.bOverrideAspectRatioAxisConstraint = true;
+        CameraComp.CameraComp.AspectRatioAxisConstraint = EAspectRatioAxisConstraint::AspectRatio_MajorAxisFOV;
 
         CameraComp.CameraShakeComp = UCameraShakeComponent::Create(HomseOwner);
 
