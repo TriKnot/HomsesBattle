@@ -1,11 +1,13 @@
 class APortalActor : AActor
 {
+    // Components
     UPROPERTY(DefaultComponent, RootComponent)
     USceneComponent Root;
 
     UPROPERTY(DefaultComponent, Attach = Root)
     UStaticMeshComponent PortalFrameMesh;
-    default PortalFrameMesh.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+    default PortalFrameMesh.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
+    default PortalFrameMesh.SetCollisionResponseToChannel(ECollisionChannel::ECC_GameTraceChannel1, ECollisionResponse::ECR_Block);
 
     UPROPERTY(DefaultComponent, Attach = Root)
     UBoxComponent TeleportTriggerVolume;
@@ -20,15 +22,23 @@ class APortalActor : AActor
     UPROPERTY(DefaultComponent, Attach = Root)
     USceneCaptureComponent2D SceneCapture;
 
+    UPROPERTY(DefaultComponent, Attach = Root)
+    UCameraComponent PortalCamera;
+
+    // Material
     UPROPERTY(EditDefaultsOnly)
     UMaterialInterface PortalMaterialBase;
 
+    // State
 
-    private APortalActor LinkedPortalActor;
+    private APortalActor LinkedPortal;
     private UMaterialInstanceDynamic PortalMaterialInstance;
-    private TMap<AActor, FVector> TeleportationMap;
+    private TMap<AActor, FVector> TrackedActors;
     private UCameraComponent PlayerCamera;
 
+    bool bCameraSynced = true;
+    bool bCameraTransitionActive = false;
+    float NearClipDistance = 10.0f;
 
     default SetTickGroup(ETickingGroup::TG_PostUpdateWork);
 
@@ -47,68 +57,146 @@ class APortalActor : AActor
     UFUNCTION(BlueprintOverride)
     void Tick(float DeltaSeconds)
     {
-        if(!IsValid(LinkedPortalActor))
+        if (!EnsureCamera())
             return;
 
-        if(!IsValid(PlayerCamera))
+
+        HandleTeleportation();
+        UpdateSceneCapture();
+        UpdatePortalCamera();
+        UpdateLinkedCapture();
+
+        if (bCameraTransitionActive)
+            HandleCameraTransition();
+    }
+
+    void SetLinkedPortal(APortalActor OtherPortal)
+    {
+        LinkedPortal = OtherPortal;
+        if(IsValid(LinkedPortal))
+            PortalFrameMesh.SetMaterial(0, LinkedPortal.PortalMaterialInstance);
+    }
+    
+    bool EnsureCamera()
+    {
+        if (!IsValid(PlayerCamera))
         {
-            ACharacter PlayerCharacter = Gameplay::GetPlayerCharacter(0);
-            PlayerCamera = UCameraComponent::Get(PlayerCharacter);
+            PlayerCamera = UCameraComponent::Get(Gameplay::GetPlayerCharacter(0));
+            if (!IsValid(PlayerCamera))
+                return false;
+
+            PortalCamera.ProjectionMode = PlayerCamera.ProjectionMode;
+            PortalCamera.FieldOfView = PlayerCamera.FieldOfView;
+            PortalCamera.bOverrideAspectRatioAxisConstraint = PlayerCamera.bOverrideAspectRatioAxisConstraint;
+            PortalCamera.AspectRatioAxisConstraint = PlayerCamera.AspectRatioAxisConstraint;
         }
+        return true;
+    }
 
-        FVector NewCaptureLocation = ComputeLinkedCameraLocation(PlayerCamera);
-        FRotator NewCaptureRotation = ComputeLinkedCameraRotation(PlayerCamera);
-        LinkedPortalActor.SceneCapture.SetWorldLocationAndRotation(NewCaptureLocation, NewCaptureRotation);
-        
-        UpdateResolution();
-        UpdateClippingPlane();
-
+    void HandleTeleportation()
+    {
         TArray<AActor> OverlappingActors;
         TeleportTriggerVolume.GetOverlappingActors(OverlappingActors);
+        OverlappingActors.Remove(this);
+
         for (AActor OverlappingActor : OverlappingActors)
         {
-            if(!IsValid(OverlappingActor) || OverlappingActor == this)
+            if(!IsValid(OverlappingActor))
                 continue;
             
             if(ShouldTeleport(OverlappingActor))
             {
                 TeleportActor(OverlappingActor);
+                InitiateCameraTransition(OverlappingActor);
             }
         }
     }
 
-    void SetLinkedPortalActor(APortalActor NewLinkedPortalActor)
+    bool ShouldTeleport(AActor Actor)
     {
-        LinkedPortalActor = NewLinkedPortalActor;
+        FVector CurrentLocation = Actor.GetActorLocation();
 
-        if(!IsValid(LinkedPortalActor))
+        if(TrackedActors.Contains(Actor))
+        {
+            FVector PreviousLocation = TrackedActors[Actor];
+            bool HasCrossed = IsBehindPortal(CurrentLocation) && !IsBehindPortal(PreviousLocation);
+            TrackedActors[Actor] = CurrentLocation;
+            return HasCrossed; 
+        }
+
+        TrackedActors.Add(Actor, CurrentLocation);
+        return false; 
+    }
+
+    bool IsBehindPortal(const FVector& Point)
+    {
+        FVector PortalToPoint = (Point - PortalFrameMesh.GetWorldLocation()).GetSafeNormal();
+        return GetActorForwardVector().DotProduct(PortalToPoint) < -KINDA_SMALL_NUMBER;
+    }
+
+    void InitiateCameraTransition(AActor Actor)
+    {
+        APawn TeleportedPawn = Cast<APawn>(Actor);
+        if (!IsValid(TeleportedPawn))
             return;
 
-        PortalFrameMesh.SetMaterial(0, LinkedPortalActor.PortalMaterialInstance);
+        APlayerController Controller = Cast<APlayerController>(TeleportedPawn.GetController());
+        if (!IsValid(Controller))
+            return;
+
+        SetCameraSynced(false);
+        Controller.SetViewTargetWithBlend(this);
+        bCameraTransitionActive = true;
+    }
+
+    void HandleCameraTransition()
+    {
+        APlayerController Controller = Gameplay::GetPlayerController(0);
+
+        if (IsCameraClippingPortalPlane())
+        {
+            SetCameraSynced(true);
+            Controller.SetViewTargetWithBlend(PlayerCamera.Owner);
+            bCameraTransitionActive = false;
+        }
     }
     
-    FVector ComputeLinkedCameraLocation(UCameraComponent Camera)
+    void SetCameraSynced(bool bNewCameraSynced)
     {
-        FTransform LocalTransform = GetActorTransform();
-        FVector Scale = LocalTransform.GetScale3D();
+        bCameraSynced = bNewCameraSynced;
+        LinkedPortal.bCameraSynced = bNewCameraSynced;
+    }
+
+    bool IsCameraClippingPortalPlane() const 
+    {
+        float Distance = (PortalFrameMesh.GetWorldLocation() - PortalCamera.GetWorldLocation()).DotProduct(GetActorForwardVector());
+        return Math::Abs(Distance) <= NearClipDistance * 2.0f;
+    }
+
+
+    void UpdateSceneCapture()
+    {
+        UpdateResolution();
+        UpdateClippingPlane();
+    }
+    
+    FVector ComputeLinkedCameraLocation(FTransform FromTransform, FTransform LinkedTransform, UCameraComponent Camera)
+    {
+        FVector Scale = FromTransform.GetScale3D();
         Scale.X *= -1;
         Scale.Y *= -1;
-        FTransform MirrorTransform(GetActorRotation(), GetActorLocation(), Scale);
+        FTransform MirrorTransform(FromTransform.Rotation, FromTransform.Location, Scale);
         
-        FVector LocalCameraPos = MirrorTransform.InverseTransformPosition(PlayerCamera.GetWorldLocation());
+        FVector LocalCameraPos = MirrorTransform.InverseTransformPosition(Camera.GetWorldLocation());
 
-        FTransform LinkedTransform = LinkedPortalActor.GetActorTransform();
         return LinkedTransform.TransformPosition(LocalCameraPos);
     }
 
-    FRotator ComputeLinkedCameraRotation(UCameraComponent Camera)
+    FRotator ComputeLinkedCameraRotation(FTransform FromTransform, FTransform LinkedTransform, UCameraComponent Camera)
     {
-        FTransform LocalTransform = GetActorTransform();
-        FTransform LinkedTransform = LinkedPortalActor.GetActorTransform();
-
-        FVector CameraForward = PlayerCamera.GetForwardVector();
-        FVector CameraRight = PlayerCamera.GetRightVector();
-        FVector CameraUp = PlayerCamera.GetUpVector();
+        FVector CameraForward = Camera.GetForwardVector();
+        FVector CameraRight = Camera.GetRightVector();
+        FVector CameraUp = Camera.GetUpVector();
 
         TArray<FVector> LocalAxes;
         LocalAxes.Add(CameraForward);
@@ -120,7 +208,7 @@ class APortalActor : AActor
 
         for (int32 i = 0; i < LocalAxes.Num(); i++)
         {
-            FVector LocalAxis = LocalTransform.InverseTransformVectorNoScale(LocalAxes[i]);
+            FVector LocalAxis = FromTransform.InverseTransformVectorNoScale(LocalAxes[i]);
             FVector MirroredAxis = MirrorVectorXY(LocalAxis);
             TransformedAxes[i] = LinkedTransform.TransformVectorNoScale(MirroredAxis);
         }
@@ -143,6 +231,7 @@ class APortalActor : AActor
 
         int32 ViewportX = 0, ViewportY = 0;
         Controller.GetViewportSize(ViewportX, ViewportY);
+        
         if (SceneCapture.TextureTarget.SizeX != ViewportX || SceneCapture.TextureTarget.SizeY != ViewportY)
         {
             SceneCapture.TextureTarget.ResizeTarget(uint32(ViewportX), uint32(ViewportY));
@@ -162,7 +251,7 @@ class APortalActor : AActor
         if(!IsValid(OtherActor))
             return;
 
-        TeleportationMap.Add(OtherActor, OtherActor.GetActorLocation()); 
+        TrackedActors.Add(OtherActor, OtherActor.GetActorLocation()); 
     }
 
     UFUNCTION()
@@ -171,13 +260,13 @@ class APortalActor : AActor
         if(!IsValid(OtherActor))
             return;
 
-        TeleportationMap.Remove(OtherActor); 
+        TrackedActors.Remove(OtherActor); 
     }
 
     void TeleportActor(AActor TargetActor)
     {        
-        FVector NewLocation = ComputeTeleportedLocation(TargetActor, LinkedPortalActor);
-        FRotator NewRotation = ComputeTeleportedRotation(TargetActor, LinkedPortalActor);
+        FVector NewLocation = ComputeTeleportedLocation(TargetActor, LinkedPortal);
+        FRotator NewRotation = ComputeTeleportedRotation(TargetActor, LinkedPortal);
 
         TargetActor.SetActorLocationAndRotation(NewLocation, NewRotation);
 
@@ -200,7 +289,7 @@ class APortalActor : AActor
         UCharacterMovementComponent CharMove = UCharacterMovementComponent::Get(TargetActor);
         if (IsValid(CharMove))
         {
-            CharMove.Velocity = ComputeTeleportedVelocity(OldVelocity, LinkedPortalActor);
+            CharMove.Velocity = ComputeTeleportedVelocity(OldVelocity, LinkedPortal);
             return;
         }
 
@@ -211,7 +300,7 @@ class APortalActor : AActor
             {
                 if (IsValid(PrimComp) && PrimComp.IsSimulatingPhysics())
                 {
-                    PrimComp.SetPhysicsLinearVelocity(ComputeTeleportedVelocity(OldVelocity, LinkedPortalActor));
+                    PrimComp.SetPhysicsLinearVelocity(ComputeTeleportedVelocity(OldVelocity, LinkedPortal));
                     return;
                 }
             }
@@ -220,47 +309,12 @@ class APortalActor : AActor
         if (IsValid(ProjMove))
 
         {
-            ProjMove.ProjectileVelocity = ComputeTeleportedVelocity(ProjMove.ProjectileVelocity, LinkedPortalActor);
+            ProjMove.ProjectileVelocity = ComputeTeleportedVelocity(ProjMove.ProjectileVelocity, LinkedPortal);
         }
     }
-
-    bool ShouldTeleport(AActor Actor)
+    FVector ComputeTeleportedLocation(AActor TargetActor, APortalActor TargetPortal)
     {
-        FVector CurrentLocation = Actor.GetActorLocation();
-
-        if(TeleportationMap.Contains(Actor))
-        {
-            FVector PreviousLocation = TeleportationMap[Actor];
-            if(IsPointBehindPortal(CurrentLocation) && !IsPointBehindPortal(PreviousLocation))
-            {
-                return true;
-            }
-
-            TeleportationMap[Actor] = CurrentLocation;
-            return false; 
-        }
-
-        TeleportationMap.Add(Actor, CurrentLocation);
-        return false; 
-    }
-
-    bool IsPointBehindPortal(const FVector& Point)
-    {
-        FVector PortalPos = PortalFrameMesh.GetWorldLocation();
-        const float Margin = 10.0f;
-        PortalPos += GetActorForwardVector() * Margin;
-
-        FVector PortalNormal = GetActorForwardVector();
-        FVector ToPoint = (Point - PortalPos).GetSafeNormal();
-
-        float DotProduct = PortalNormal.DotProduct(ToPoint);
-
-        return (DotProduct < -KINDA_SMALL_NUMBER);
-    }
-
-    FVector ComputeTeleportedLocation(AActor TargetActor, APortalActor LinkedPortal)
-    {
-        if (!IsValid(TargetActor) || !IsValid(LinkedPortal))
+        if (!IsValid(TargetActor) || !IsValid(TargetPortal))
         {
             return TargetActor.GetActorLocation();
         }
@@ -269,19 +323,19 @@ class APortalActor : AActor
         LocalOffset.X = -LocalOffset.X;
         LocalOffset.Y = -LocalOffset.Y;
 
-        return LinkedPortal.GetActorTransform().TransformPosition(LocalOffset);
+        return TargetPortal.GetActorTransform().TransformPosition(LocalOffset);
     }
 
-    FRotator ComputeTeleportedRotation(AActor Actor, APortalActor LinkedPortal)
+    FRotator ComputeTeleportedRotation(AActor Actor, APortalActor TargetPortal)
     {
-        if (!IsValid(Actor) || !IsValid(LinkedPortal))
+        if (!IsValid(Actor) || !IsValid(TargetPortal))
         {
             return Actor.GetActorRotation();
         }
 
         FQuat Quat = Actor.GetActorQuat();
         FQuat CurrentPortalQuat = GetActorQuat();
-        FQuat LinkedPortalQuat = LinkedPortal.GetActorQuat();
+        FQuat LinkedPortalQuat = TargetPortal.GetActorQuat();
 
         FQuat RelativeQuat = CurrentPortalQuat.Inverse() * Quat;
 
@@ -292,15 +346,15 @@ class APortalActor : AActor
         return NewWorldQuat.Rotator();
     }
 
-    FVector ComputeTeleportedVelocity(FVector OldVelocity, APortalActor LinkedPortal)
+    FVector ComputeTeleportedVelocity(FVector OldVelocity, APortalActor TargetPortal)
     {
-        if (!IsValid(LinkedPortal))
+        if (!IsValid(TargetPortal))
         {
             return OldVelocity;
         }
 
         FQuat CurrentPortalQuat = GetActorQuat();
-        FQuat LinkedPortalQuat  = LinkedPortal.GetActorQuat();
+        FQuat LinkedPortalQuat  = TargetPortal.GetActorQuat();
 
         FVector LocalVelocity = CurrentPortalQuat.Inverse().RotateVector(OldVelocity);
 
@@ -322,6 +376,43 @@ class APortalActor : AActor
             }
         }
         return false;
+    }
+
+    void TransitionCamera(AActor OverlappingActor)
+    {
+        APawn TeleportedPawn = Cast<APawn>(OverlappingActor);
+        if (!IsValid(TeleportedPawn))
+            return;
+
+        APlayerController Controller = Cast<APlayerController>(TeleportedPawn.GetController());
+        if (!IsValid(Controller))
+            return;
+
+        SetCameraSynced(false);
+        Controller.SetViewTargetWithBlend(this);
+
+        UCameraComponent Camera = bCameraSynced ? PlayerCamera : PortalCamera;
+
+        FVector NewCaptureLocation = ComputeLinkedCameraLocation(GetActorTransform(), LinkedPortal.GetActorTransform(), Camera);
+        FRotator NewCaptureRotation = ComputeLinkedCameraRotation(GetActorTransform(), LinkedPortal.GetActorTransform(), Camera);
+        LinkedPortal.SceneCapture.SetWorldLocationAndRotation(NewCaptureLocation, NewCaptureRotation);
+    }
+
+    void UpdatePortalCamera()
+    {
+        FVector Location = ComputeLinkedCameraLocation(LinkedPortal.GetActorTransform() , GetActorTransform(), PlayerCamera);
+        FRotator Rotation = ComputeLinkedCameraRotation(LinkedPortal.GetActorTransform(), GetActorTransform(), PlayerCamera);
+
+        PortalCamera.SetWorldLocationAndRotation(Location, Rotation);
+    }
+
+    void UpdateLinkedCapture()
+    {
+        UCameraComponent Camera = bCameraSynced ? PlayerCamera : PortalCamera;
+
+        FVector NewCaptureLocation = ComputeLinkedCameraLocation(GetActorTransform(), LinkedPortal.GetActorTransform(), Camera);
+        FRotator NewCaptureRotation = ComputeLinkedCameraRotation(GetActorTransform(), LinkedPortal.GetActorTransform(), Camera);
+        LinkedPortal.SceneCapture.SetWorldLocationAndRotation(NewCaptureLocation, NewCaptureRotation);
     }
 
 }
