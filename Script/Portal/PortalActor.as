@@ -39,12 +39,13 @@ class APortalActor : AActor
     private UMaterialInstanceDynamic PortalMaterialInstance;
     private TMap<AActor, FVector> TrackedActors;
     private UCameraComponent PlayerCamera;
+    TArray<FVector> MeshWorldCorners;
 
     bool bCameraSynced = true;
     bool bCameraTransitionActive = false;
     float NearClipDistance = 10.0f;
 
-    default SetTickGroup(ETickingGroup::TG_PostUpdateWork);
+    default SetTickGroup(ETickingGroup::TG_LastDemotable);
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
@@ -56,6 +57,8 @@ class APortalActor : AActor
         PortalMaterialInstance.SetTextureParameterValue(n"PortalTexture", PortalCamera.TextureTarget);
      
         UPortalSubsystem::Get().RegisterPortal(this);
+
+        CalculateMeshWorldCorners();
     }
 
     UFUNCTION(BlueprintOverride)
@@ -64,6 +67,8 @@ class APortalActor : AActor
         if (!EnsureCamera())
             return;
 
+        if(!WasRecentlyRendered() || !CanSeePortal(PlayerCamera, this))
+            return;
 
         HandleTeleportation();
         UpdatePortalCamera();
@@ -92,6 +97,9 @@ class APortalActor : AActor
             PortalPlayerCamera.FieldOfView = PlayerCamera.FieldOfView;
             PortalPlayerCamera.bOverrideAspectRatioAxisConstraint = PlayerCamera.bOverrideAspectRatioAxisConstraint;
             PortalPlayerCamera.AspectRatioAxisConstraint = PlayerCamera.AspectRatioAxisConstraint;
+
+            UpdateResolution();
+            UpdateClippingPlane();
         }
         return true;
     }
@@ -407,17 +415,13 @@ class APortalActor : AActor
 
     void HandleSceneCapture()
     {
+        UpdateResolution();
+        UpdateClippingPlane();
+
         FVector TempLocation = FVector::ZeroVector;
         FRotator TempRotation = FRotator::ZeroRotator;
         int CurrentRecursion = 0;
         UpdateLinkedSceneCaptureRecursive(TempLocation, TempRotation, CurrentRecursion, 3);
-    }
-
-    void CaptureScene()
-    {
-        UpdateResolution();
-        UpdateClippingPlane();
-        LinkedPortal.PortalCamera.CaptureScene();
     }
 
     void UpdateLinkedSceneCaptureRecursive(FVector OldLocation, FRotator OldRotation, int CurrentRecursion, int MaxRecursions = 3)
@@ -428,13 +432,16 @@ class APortalActor : AActor
 
             UCameraComponent Camera = bCameraSynced ? PlayerCamera : LinkedPortal.PortalPlayerCamera;
 
+            if(!IsValid(Camera))
+                return;
+
             FVector TempLocation = ComputeLinkedCameraLocation(Camera.GetWorldLocation());
             FRotator TempRotation = ComputeLinkedCameraRotation(Camera.GetWorldRotation());
             
             UpdateLinkedSceneCaptureRecursive(TempLocation, TempRotation, CurrentRecursion + 1, MaxRecursions);
 
             LinkedPortal.PortalCamera.SetWorldLocationAndRotation(TempLocation, TempRotation);
-            CaptureScene();
+            LinkedPortal.PortalCamera.CaptureScene();
         }
         else if(CurrentRecursion < MaxRecursions)
         {            
@@ -444,7 +451,7 @@ class APortalActor : AActor
             UpdateLinkedSceneCaptureRecursive(TempLocation, TempRotation, CurrentRecursion + 1, MaxRecursions);
 
             LinkedPortal.PortalCamera.SetWorldLocationAndRotation(TempLocation, TempRotation);
-            CaptureScene();
+            LinkedPortal.PortalCamera.CaptureScene();
         }
         else
         {
@@ -453,9 +460,51 @@ class APortalActor : AActor
 
             LinkedPortal.PortalCamera.SetWorldLocationAndRotation(Location, Rotation);
             PortalFrameMesh.SetVisibility(false);
-            CaptureScene();
+            LinkedPortal.PortalCamera.CaptureScene();
             PortalFrameMesh.SetVisibility(true);
         }
+    }
+
+    bool CanSeePortal(USceneComponent ViewerComponent, APortalActor Portal)
+    {
+        if(!IsValid(ViewerComponent))
+            return false;
+
+        if(IsBehindPortal(ViewerComponent.GetWorldLocation()))
+            return false;
+
+        APlayerController PlayerController = Gameplay::GetPlayerController(0);
+        if (!IsValid(PlayerController))
+            return false;
+
+        int ViewportX = 0;
+        int ViewportY = 0;
+        PlayerController.GetViewportSize(ViewportX, ViewportY);
+
+        for (const FVector& Point : Portal.MeshWorldCorners)
+        {
+            FVector2D ScreenPos;
+            if (PlayerController.ProjectWorldLocationToScreen(Point, ScreenPos))
+            {
+                if(ScreenPos.X > 0 && ScreenPos.X < ViewportX 
+                && ScreenPos.Y > 0 && ScreenPos.Y < ViewportY)
+                    return true;
+            }        
+        }
+        return false;
+    }
+
+    void CalculateMeshWorldCorners()
+    {
+        FVector LocalMin, LocalMax;
+        PortalFrameMesh.GetLocalBounds(LocalMin, LocalMax);
+
+        FTransform MeshTransform = PortalFrameMesh.GetWorldTransform();
+
+        MeshWorldCorners.Add(MeshTransform.TransformPosition(FVector(LocalMin.X, LocalMin.Y, 0)));
+        MeshWorldCorners.Add(MeshTransform.TransformPosition(FVector(LocalMax.X, LocalMin.Y, 0)));
+        MeshWorldCorners.Add(MeshTransform.TransformPosition(FVector(LocalMax.X, LocalMax.Y, 0)));
+        MeshWorldCorners.Add(MeshTransform.TransformPosition(FVector(LocalMin.X, LocalMax.Y, 0)));
     }
 
 }
