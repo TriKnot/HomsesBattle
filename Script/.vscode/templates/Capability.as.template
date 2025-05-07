@@ -36,4 +36,4 @@ class U${TM_FILENAME_BASE} : UCapability
     void TickActive(float DeltaTime)
     {
     }
-};
+}
