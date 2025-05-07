@@ -2,17 +2,12 @@ class UPortalSubsystem : UScriptWorldSubsystem
 {
     TArray<APortalActor> ActivePortals;
     const int MaxPortalCount = 2;
-    ACharacter PlayerCharacter;
-
-    UFUNCTION(BlueprintOverride)
-    void OnWorldBeginPlay()
-    {
-        PlayerCharacter = Gameplay::GetPlayerCharacter(0);
-    }
-
 
     void RegisterPortal(APortalActor PortalActor)
     {
+        if(ActivePortals.Contains(PortalActor))
+            return;
+
         if (ActivePortals.Num() >= MaxPortalCount)
         {
             ActivePortals[0].DestroyActor();
@@ -29,6 +24,7 @@ class UPortalSubsystem : UScriptWorldSubsystem
         {
             ActivePortals[0].SetLinkedPortal(nullptr);
         }
+
     }
 
     void UnregisterPortal(APortalActor PortalActor)
