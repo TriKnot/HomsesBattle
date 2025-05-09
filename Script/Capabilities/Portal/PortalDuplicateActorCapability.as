@@ -4,13 +4,6 @@ class UPortalDuplicateActorCapability : UCapability
 
     private UPortalComponent PortalComp;
 
-    // Configuration
-    UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
-    float DuplicateBufferDistance = 150.0f;
-    
-    UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
-    float RemovalBufferDistance = 150.0f;
-
     UFUNCTION(BlueprintOverride)
     void Setup()
     {
@@ -24,24 +17,13 @@ class UPortalDuplicateActorCapability : UCapability
     UFUNCTION(BlueprintOverride)
     bool ShouldActivate()
     {
-        return PortalComp.GetTrackedActors().Num() > 0;
+        return PortalComp.GetTrackedActors().Num() > 0 && IsValid(PortalComp.GetLinkedPortal());
     }
 
     UFUNCTION(BlueprintOverride)
     bool ShouldDeactivate()
     {
-        if(!IsValid(PortalComp.GetLinkedPortal()))
-        {
-            Print(f"Linked portal is not valid, disabling PortalDuplicateActorCapability for {Owner.GetName()}", 5, FLinearColor::Red);
-            return true;
-        }
-        if(PortalComp.GetTrackedActors().Num() == 0)
-        {
-            Print(f"Tracked actors are empty, disabling PortalDuplicateActorCapability for {Owner.GetName()}", 5, FLinearColor::Red);
-            return true;
-        }
-
-        return false;
+        return !IsValid(PortalComp.GetLinkedPortal()) || PortalComp.GetTrackedActors().Num() == 0;
     }
 
     UFUNCTION(BlueprintOverride)
@@ -66,28 +48,23 @@ class UPortalDuplicateActorCapability : UCapability
     private void UpdateDuplicatedActors()
     {           
         ProcessTeleportedActors();
-        
         ProcessOverlappingActors();
-        
         UpdateExistingDuplicates();
-        
         HandleTransitionDuplicates();
-        
         CleanupDistantDuplicates();
     }
 
     private void HandleTransitionDuplicates()
     {
-        const float TransitionDuration = 0.1f; // 100ms transition window
         float CurrentTime = System::GetGameTimeInSeconds();
+
         TArray<AActor> CompletedTransitions;
+        const TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
         
-        TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
-        
-        for (auto& Pair : DuplicatedActorsMap)
+        for (const auto& Pair : DuplicatedActorsMap)
         {
             AActor OriginalActor = Pair.Key;
-            FDuplicateInfo& DuplicateInfo = Pair.Value;
+            const FDuplicateInfo& DuplicateInfo = Pair.Value;
             
             if (DuplicateInfo.bInTransition)
             {
@@ -96,14 +73,17 @@ class UPortalDuplicateActorCapability : UCapability
                     UpdateDuplicateVisuals(OriginalActor, DuplicateInfo.DuplicateActor);
                 }
                 
-                if (CurrentTime - DuplicateInfo.TransitionStartTime > TransitionDuration)
+                // If the transition time has passed, we can consider this transition complete
+                if (CurrentTime - DuplicateInfo.TransitionStartTime > PortalComp.DuplicateTransitionTime)
                 {
                     CompletedTransitions.Add(OriginalActor);
                 }
             }
         }
         
-        // Remove duplicates that have completed their transition
+        // The duplicate is now fully managed by the other portal's capability.
+        // This portal should stop tracking it.
+        // Note: This does not destroy the duplicate actor, this just stops this portal from tracking it.
         for (AActor Actor : CompletedTransitions)
         {
             PortalComp.RemoveDuplicate(Actor);
@@ -113,25 +93,23 @@ class UPortalDuplicateActorCapability : UCapability
     private void ProcessTeleportedActors()
     {
         // Process recently teleported actors
-        TArray<AActor> TeleportedActorsCopy = PortalComp.GetTeleportedActors();
+        const TArray<AActor> TeleportedActorsCopy = PortalComp.GetTeleportedActors();
         
         for (AActor TeleportedActor : TeleportedActorsCopy)
         {
-            // Check if this actor has a duplicate in our portal
+            if(!IsValid(TeleportedActor))
+                continue;
+
+            // Check if this actor has a duplicate by this portal
             if (PortalComp.GetDuplicatedActors().Contains(TeleportedActor))
-            {
-                // The duplicate will be handled through the PortalComponent's TransferDuplicateToLinkedPortal
-                // which was called during teleportation
-                
-                // If teleported, we need to switch the duplicate's rendering to the other portal
+            {               
+                // If teleported, we need to move the duplicate to the other portal
                 if (!PortalComp.IsActorTeleported(TeleportedActor))
                 {
                     AActor DuplicateActor = PortalComp.GetDuplicateActor(TeleportedActor);
                     if (IsValid(DuplicateActor))
                     {
-                        // Update to show it correctly at this portal
                         SwitchDuplicateToOtherPortal(TeleportedActor, DuplicateActor);
-                        Print(f"Switched duplicate actor to other portal: {DuplicateActor.GetName()}");
                     }
                 }
             }
@@ -156,11 +134,6 @@ class UPortalDuplicateActorCapability : UCapability
 
     private FVector ComputeReversedTransformedLocation(const FVector& OriginalLocation)
     {
-        if (!IsValid(PortalComp) || !IsValid(PortalComp.GetLinkedPortal()))
-            return OriginalLocation;
-
-        // Convert from the destination portal (linked portal) to this portal
-        // This is the reverse of the normal transformation
         FVector LocalOffset = PortalComp.GetLinkedPortal().GetActorTransform().InverseTransformPosition(OriginalLocation);
         
         // Mirror the position
@@ -173,9 +146,6 @@ class UPortalDuplicateActorCapability : UCapability
 
     private FRotator ComputeReversedTransformedRotation(const FRotator& OriginalRotation)
     {
-        if (!IsValid(PortalComp) || !IsValid(PortalComp.GetLinkedPortal()))
-            return OriginalRotation;
-
         FQuat ActorQuat = OriginalRotation.Quaternion();
         FQuat SourcePortalQuat = PortalComp.GetLinkedPortal().GetActorQuat();
         FQuat DestPortalQuat = Owner.GetActorQuat();
@@ -198,11 +168,11 @@ class UPortalDuplicateActorCapability : UCapability
         
         for (AActor Actor : OverlappingActors)
         {
-            if (!IsValid(Actor))
+            if (!IsValid(Actor) || Actor == Owner)
                 continue;
                 
             // Check if actor is intersecting the portal plane
-            if (IsActorIntersectingPortalPlane(Actor, DuplicateBufferDistance))
+            if (PortalTransformHelpers::IsActorIntersectingPlane(Actor, Owner.GetActorTransform(), PortalComp.SpawnDuplicateBufferDistance))
             {
                 // Create duplicate if needed
                 if (!PortalComp.GetDuplicatedActors().Contains(Actor))
@@ -212,7 +182,6 @@ class UPortalDuplicateActorCapability : UCapability
                     {
                         // Register the duplicate in the component
                         PortalComp.RegisterDuplicate(Actor, DuplicateActor, false);
-                        Print(f"Created duplicate actor: {DuplicateActor.GetName()}");
                     }
                 }
             }
@@ -222,14 +191,13 @@ class UPortalDuplicateActorCapability : UCapability
     private void UpdateExistingDuplicates()
     {
         // Access the duplicates via the PortalComponent
-        TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
-        TArray<AActor> OriginalActors;
-        DuplicatedActorsMap.GetKeys(OriginalActors);
+        const TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
         
-        for (AActor OriginalActor : OriginalActors)
+        for (auto& Pair : DuplicatedActorsMap)
         {
-            FDuplicateInfo& DuplicateInfo = DuplicatedActorsMap[OriginalActor];
+            const FDuplicateInfo& DuplicateInfo = Pair.Value;
             AActor DuplicateActor = DuplicateInfo.DuplicateActor;
+            AActor OriginalActor = Pair.Key;
             
             if (IsValid(OriginalActor) && IsValid(DuplicateActor))
             {
@@ -240,6 +208,7 @@ class UPortalDuplicateActorCapability : UCapability
                     FRotator NewRotation = ComputeReversedTransformedRotation(OriginalActor.GetActorRotation());
                     
                     DuplicateActor.SetActorLocationAndRotation(NewLocation, NewRotation);
+                    DuplicateActor.SetActorScale3D(OriginalActor.GetActorScale3D());
                 }
                 else
                 {
@@ -256,12 +225,12 @@ class UPortalDuplicateActorCapability : UCapability
     private void CleanupDistantDuplicates()
     {
         TArray<AActor> ActorsToRemove;
-        TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
+        const TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
         
-        for (auto& Pair : DuplicatedActorsMap)
+        for (const auto& Pair : DuplicatedActorsMap)
         {
             AActor OriginalActor = Pair.Key;
-            FDuplicateInfo& DuplicateInfo = Pair.Value;
+            const FDuplicateInfo& DuplicateInfo = Pair.Value;
 
             // Skip duplicates in transition state
             if (DuplicateInfo.bInTransition)
@@ -272,16 +241,22 @@ class UPortalDuplicateActorCapability : UCapability
                 ActorsToRemove.Add(OriginalActor);
                 continue;
             }
-            
-            // If the original actor is not intersecting any of the two linked portal planes, we can remove the duplicate
-            if(!IsActorIntersectingPortalPlane(OriginalActor, RemovalBufferDistance))
+
+            if(DuplicateInfo.bOriginalWasTeleported) // Original is at linked portal
             {
-                if (!DuplicateInfo.bOriginalWasTeleported || 
-                    !IsActorIntersectingLinkedPortalPlane(OriginalActor, RemovalBufferDistance))
+                if (!PortalTransformHelpers::IsActorIntersectingPlane(OriginalActor, PortalComp.GetLinkedPortal().GetActorTransform(), PortalComp.RemoveDuplicateBufferDistance))
                 {
-                    ActorsToRemove.Add(OriginalActor);
+                     ActorsToRemove.Add(OriginalActor);
                 }
             }
+            else // Original is at this portal
+            {
+                if (!PortalTransformHelpers::IsActorIntersectingPlane(OriginalActor, Owner.GetActorTransform(), PortalComp.RemoveDuplicateBufferDistance))
+                {
+                     ActorsToRemove.Add(OriginalActor);
+                }
+            }
+
         }
         
         for (AActor ActorToRemove : ActorsToRemove)
@@ -290,64 +265,16 @@ class UPortalDuplicateActorCapability : UCapability
             if (IsValid(DuplicateActor))
             {
                 DuplicateActor.DestroyActor();
-                Print(f"Removed duplicate actor: {DuplicateActor.GetName()}", 5, FLinearColor::Red);
-            }
+            } 
             PortalComp.RemoveDuplicate(ActorToRemove);
         }
-    }
-
-    private bool IsActorIntersectingLinkedPortalPlane(AActor Actor, float BufferDistance = 0.0f)
-    {
-        if (!IsValid(Actor) || !IsValid(PortalComp.GetLinkedPortal()))
-            return false;
-        
-        // Get the actor's bounds
-        FVector Location;
-        FVector Extent;
-        Actor.GetActorBounds(true, Location, Extent);
-        FBox ActorBounds = FBox(Location - Extent, Location + Extent);
-        
-        // Portal plane information for the linked portal
-        FVector PortalLocation = PortalComp.GetLinkedPortal().GetActorLocation();
-        FVector PortalNormal = PortalComp.GetLinkedPortal().GetActorForwardVector();
-        
-        // Get the 8 corners of the bounding box
-        TArray<FVector> Corners;
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
-        
-        bool bHasPointInFront = false;
-        bool bHasPointBehind = false;
-        
-        for (const FVector& Corner : Corners)
-        {
-            float Distance = (Corner - PortalLocation).DotProduct(PortalNormal);
-            
-            if (Distance > -BufferDistance) // In front or within buffer
-                bHasPointInFront = true;
-            if (Distance < BufferDistance) // Behind or within buffer
-                bHasPointBehind = true;
-            
-            // If we have points on both sides or within buffer, the actor is intersecting the plane
-            if (bHasPointInFront && bHasPointBehind)
-                return true;
-        }
-        
-        return false;
     }
     
     private void CleanupAllDuplicates()
     {
-        Print(f"Cleaning up all duplicate actors", 2, FLinearColor::Yellow);
-        TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
+        const TMap<AActor, FDuplicateInfo>& DuplicatedActorsMap = PortalComp.GetDuplicatedActors();
         
-        for (auto& Pair : DuplicatedActorsMap)
+        for (const auto& Pair : DuplicatedActorsMap)
         {
             AActor DuplicateActor = Pair.Value.DuplicateActor;
             if (IsValid(DuplicateActor))
@@ -357,58 +284,12 @@ class UPortalDuplicateActorCapability : UCapability
         }
         
         // Clear all duplicate entries in the component
-        DuplicatedActorsMap.Empty();
-    }
-
-    private bool IsActorIntersectingPortalPlane(AActor Actor, float BufferDistance = 0.0f)
-    {
-        if (!IsValid(Actor))
-            return false;
-        
-        // Get the actor's bounds
-        FVector Location;
-        FVector Extent;
-        Actor.GetActorBounds(true, Location, Extent);
-        FBox ActorBounds = FBox(Location - Extent, Location + Extent);
-        
-        // Portal plane information
-        FVector PortalLocation = Owner.GetActorLocation();
-        FVector PortalNormal = Owner.GetActorForwardVector();
-        
-        // Get the 8 corners of the bounding box
-        TArray<FVector> Corners;
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
-        
-        bool bHasPointInFront = false;
-        bool bHasPointBehind = false;
-        
-        for (const FVector& Corner : Corners)
-        {
-            float Distance = (Corner - PortalLocation).DotProduct(PortalNormal);
-            
-            if (Distance > -BufferDistance) // In front or within buffer
-                bHasPointInFront = true;
-            if (Distance < BufferDistance) // Behind or within buffer
-                bHasPointBehind = true;
-            
-            // If we have points on both sides or within buffer, the actor is intersecting the plane
-            if (bHasPointInFront && bHasPointBehind)
-                return true;
-        }
-        
-        return false;
+        PortalComp.EmptyDuplicatedActors();
     }
 
     private AActor CreateDuplicateActor(AActor OriginalActor)
     {
-        if (!IsValid(OriginalActor) || !IsValid(PortalComp) || !IsValid(PortalComp.GetLinkedPortal()))
+        if (!IsValid(OriginalActor))
             return nullptr;
         
         // Calculate the transformed position for the duplicate
@@ -417,7 +298,6 @@ class UPortalDuplicateActorCapability : UCapability
         
         // Spawn the duplicate actor as an empty container       
         AActor DuplicateActor = SpawnActor(AActor::StaticClass(), NewLocation, NewRotation, FName(f"{OriginalActor.GetName()}_Duplicate"));
-        DuplicateActor.Owner = PortalComp.GetLinkedPortal();
         
         if (IsValid(DuplicateActor))
         {           
@@ -426,6 +306,7 @@ class UPortalDuplicateActorCapability : UCapability
             
             // Create components for the duplicate based on the original actor
             SetupDuplicateVisualComponents(OriginalActor, DuplicateActor);
+            DuplicateActor.SetActorScale3D(OriginalActor.GetActorScale3D());
         }
         
         return DuplicateActor;
@@ -574,6 +455,10 @@ class UPortalDuplicateActorCapability : UCapability
                 // Copy pose snapshot from original to duplicate
                 DuplicateMesh.CopyPoseFromSkeletalComponent(OriginalMesh);
             }
+            else
+            {
+                Log(n"Warning", f"Original mesh or duplicate mesh is not valid: {OriginalMesh}, {DuplicateMesh}");
+            }
         }
     }
 
@@ -596,20 +481,30 @@ class UPortalDuplicateActorCapability : UCapability
             {
                 // Copy dynamic material instances or create them if needed
                 int32 NumMaterials = OriginalMesh.GetNumMaterials();
-                for (int32 MatIdx = 0; MatIdx < NumMaterials; MatIdx++)
+                for (int32 MatId = 0; MatId < NumMaterials; MatId++)
                 {
-                    UMaterialInstanceDynamic OriginalDynMat = Cast<UMaterialInstanceDynamic>(OriginalMesh.GetMaterial(MatIdx));
+                    UMaterialInstanceDynamic OriginalDynMat = Cast<UMaterialInstanceDynamic>(OriginalMesh.GetMaterial(MatId));
                     if (IsValid(OriginalDynMat))
                     {
                         // If original has a dynamic material, create or update one for the duplicate
-                        UMaterialInstanceDynamic DuplicateDynMat = Cast<UMaterialInstanceDynamic>(DuplicateMesh.GetMaterial(MatIdx));
+                        UMaterialInstanceDynamic DuplicateDynMat = Cast<UMaterialInstanceDynamic>(DuplicateMesh.GetMaterial(MatId));
                         if (!IsValid(DuplicateDynMat))
                         {
-                            DuplicateDynMat = DuplicateMesh.CreateDynamicMaterialInstance(MatIdx, OriginalDynMat.BaseMaterial);
+                            DuplicateDynMat = DuplicateMesh.CreateDynamicMaterialInstance(MatId, OriginalDynMat.BaseMaterial);
 
-                            DuplicateMesh.SetMaterial(MatIdx, DuplicateDynMat);
+                            DuplicateMesh.SetMaterial(MatId, DuplicateDynMat);
                             DuplicateDynMat.CopyMaterialInstanceParameters(OriginalDynMat);
                         }
+                    }
+                    else
+                    {
+                        // If original has a static material, set it on the duplicate
+                        UMaterialInterface OriginalMat = OriginalMesh.GetMaterial(MatId);
+                        if (IsValid(OriginalMat))
+                        {
+                            DuplicateMesh.SetMaterial(MatId, OriginalMat);
+                        }
+
                     }
                 }
             }
@@ -645,88 +540,25 @@ class UPortalDuplicateActorCapability : UCapability
             }
         }
     }
-    
-    private void CopyVisualProperties(AActor OriginalActor, AActor DuplicateActor)
-    {
-        // Copy mesh-related properties
-        TArray<UMeshComponent> OriginalMeshes;
-        OriginalActor.GetComponentsByClass(UMeshComponent::StaticClass(), OriginalMeshes);
 
-        TArray<UMeshComponent> DuplicateMeshes;
-        DuplicateActor.GetComponentsByClass(UMeshComponent::StaticClass(), DuplicateMeshes);
+    FVector ComputeTransformedLocation(const FVector& OriginalLocationAtThisPortal) const
+    {
+        const FTransform& ThisPortalTransform = Owner.GetActorTransform();
+        const FTransform& LinkedPortalTransform = PortalComp.GetLinkedPortal().GetActorTransform();
         
-        // Match components by index and copy properties
-        for (int i = 0; i < OriginalMeshes.Num() && i < DuplicateMeshes.Num(); i++)
-        {
-            UMeshComponent OriginalMesh = OriginalMeshes[i];
-            UMeshComponent DuplicateMesh = DuplicateMeshes[i];
-            
-            if (IsValid(OriginalMesh) && IsValid(DuplicateMesh))
-            {
-                // Copy materials
-                int32 NumMaterials = OriginalMesh.GetNumMaterials();
-                for (int32 MatIdx = 0; MatIdx < NumMaterials; MatIdx++)
-                {
-                    UMaterialInterface OriginalMat = OriginalMesh.GetMaterial(MatIdx);
-                    if (IsValid(OriginalMat))
-                    {
-                        DuplicateMesh.SetMaterial(MatIdx, OriginalMat);
-                    }
-                }
-                
-                // Copy visibility state
-                DuplicateMesh.SetVisibility(OriginalMesh.IsVisible());
-            }
-        }
+        FVector LocalOffsetAtThis = ThisPortalTransform.InverseTransformPosition(OriginalLocationAtThisPortal);
+        return PortalTransformHelpers::TransformLocalPointToWorldMirrored(LocalOffsetAtThis, LinkedPortalTransform);
     }
 
-    private FVector ComputeTransformedLocation(const FVector& OriginalLocation)
+    FRotator ComputeTransformedRotation(const FRotator& OriginalRotationAtThisPortal) const
     {
-        if (!IsValid(PortalComp) || !IsValid(PortalComp.GetLinkedPortal()))
-            return OriginalLocation;
+        const FQuat ActorQuat = OriginalRotationAtThisPortal.Quaternion();
+        const FQuat ThisPortalQuat = Owner.GetActorQuat(); // Source of transform
+        const FQuat LinkedPortalQuat = PortalComp.GetLinkedPortal().GetActorQuat(); // Destination of transform
+        // Flip axis for normal duplication is Linked Portal's Up
+        const FVector FlipAxis = PortalComp.GetLinkedPortal().GetActorUpVector(); 
 
-        // Convert to local space relative to source portal
-        FVector LocalOffset = Owner.GetActorTransform().InverseTransformPosition(OriginalLocation);
-        
-        // Mirror the position
-        LocalOffset.X = -LocalOffset.X;
-        LocalOffset.Y = -LocalOffset.Y;
-
-        // Transform to world space relative to destination portal
-        return PortalComp.GetLinkedPortal().GetActorTransform().TransformPosition(LocalOffset);
+        const FQuat RelativeQuat = ThisPortalQuat.Inverse() * ActorQuat;
+        return PortalTransformHelpers::TransformLocalRotationToWorldFlipped(RelativeQuat, LinkedPortalQuat, FlipAxis);
     }
-
-    private FRotator ComputeTransformedRotation(const FRotator& OriginalRotation)
-    {
-        if (!IsValid(PortalComp) || !IsValid(PortalComp.GetLinkedPortal()))
-            return OriginalRotation;
-
-        // Get quaternions for easy rotation math
-        FQuat ActorQuat = OriginalRotation.Quaternion();
-        FQuat SourcePortalQuat = Owner.GetActorQuat();
-        FQuat DestPortalQuat = PortalComp.GetLinkedPortal().GetActorQuat();
-
-        // Calculate rotation relative to source portal
-        FQuat RelativeQuat = SourcePortalQuat.Inverse() * ActorQuat;
-
-        // Create 180-degree flip quaternion
-        FQuat FlipQuat = FQuat(PortalComp.GetLinkedPortal().GetActorUpVector(), PI);
-        
-        // Mirror the rotation
-        FQuat MirroredRelativeQuat = FlipQuat * RelativeQuat;
-
-        // Calculate new world rotation
-        FQuat NewWorldQuat = DestPortalQuat * MirroredRelativeQuat;
-        return NewWorldQuat.Rotator();
-    }
-}
-
-    
-// Track duplicate actors with additional information about their state
-struct FDuplicateInfo
-{
-    AActor DuplicateActor;
-    bool bOriginalWasTeleported;  // Tracks if the original has been teleported
-    bool bInTransition = false;   // Tracks if the duplicate is being transferred
-    float TransitionStartTime = 0.0f; // When the transition started
 }

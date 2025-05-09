@@ -1,11 +1,10 @@
 class UPortalRenderCapability : UCapability
 {
-    default Priority = ECapabilityPriority::MAX;
+    default Priority = ECapabilityPriority::MAX; // TODO: Update this when we handle more capability priorities
 
     private APortalActor PortalOwner;
     private UPortalComponent PortalComp;
     private UCameraComponent PlayerCamera;
-    private float LastResolutionUpdateTime = 0.0f;
 
     UFUNCTION(BlueprintOverride)
     void Setup()
@@ -54,7 +53,7 @@ class UPortalRenderCapability : UCapability
     {
         if (!EnsureCamera())
         {
-            Log(n"PortalRenderCapability", f"Camera is not valid for {Owner.GetName()}. Cannot update portal.");
+            Log(n"Error", f"Camera is not valid for {Owner.GetName()}. Cannot update portal.");
             return;
         }
             
@@ -66,7 +65,7 @@ class UPortalRenderCapability : UCapability
         }
             
         // Update portal camera and rendering
-        UpdatePortalCamera();
+        UpdatePortalCameraTransform();
         HandleSceneCapture();
     }
     
@@ -74,7 +73,12 @@ class UPortalRenderCapability : UCapability
     
     private void SetupPortalFrameMesh()
     {         
-        PortalComp.PortalFrameMesh = UStaticMeshComponent::GetOrCreate(PortalOwner, n"PortalFrameMesh");
+        PortalComp.PortalFrameMesh = UStaticMeshComponent::Get(PortalOwner, n"PortalFrameMesh");
+        if (!IsValid(PortalComp.PortalFrameMesh))
+        {
+            Log(n"Error", "PortalFrameMesh is not set. Please assign a mesh to the portal frame.");
+            return;
+        }
 
         // Setup collision for portal frame
         PortalComp.PortalFrameMesh.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
@@ -150,7 +154,6 @@ class UPortalRenderCapability : UCapability
         PortalComp.SetMeshWorldCorners(Corners);
     }
     
-    // --- Helper Methods ---
     private bool EnsureCamera()
     {
         if (!IsValid(PlayerCamera))
@@ -165,7 +168,7 @@ class UPortalRenderCapability : UCapability
 
             return true;
         }
-        return IsValid(PlayerCamera);
+        return true;
     }
     
     private void SyncCameraProperties()
@@ -173,17 +176,14 @@ class UPortalRenderCapability : UCapability
         if (!IsValid(PortalComp.PortalPlayerCamera) || !IsValid(PlayerCamera))
             return;
             
-        PortalComp.PortalPlayerCamera.ProjectionMode = PlayerCamera.ProjectionMode;
-        PortalComp.PortalPlayerCamera.FieldOfView = PlayerCamera.FieldOfView;
+        PortalComp.PortalPlayerCamera.SetProjectionMode(PlayerCamera.ProjectionMode);
+        PortalComp.PortalPlayerCamera.SetFieldOfView(PlayerCamera.FieldOfView);
         PortalComp.PortalPlayerCamera.bOverrideAspectRatioAxisConstraint = PlayerCamera.bOverrideAspectRatioAxisConstraint;
-        PortalComp.PortalPlayerCamera.AspectRatioAxisConstraint = PlayerCamera.AspectRatioAxisConstraint;
+        PortalComp.PortalPlayerCamera.SetAspectRatioAxisConstraint(PlayerCamera.AspectRatioAxisConstraint);
     }
     
     private bool IsPortalVisibleToPlayer()
-    {
-        if (!IsValid(PlayerCamera) || !IsValid(PortalComp.GetLinkedPortal()))
-            return false;
-            
+    {          
         // Skip if the player camera is behind the portal
         if (PortalComp.IsBehindPortal(PlayerCamera.GetWorldLocation()))
             return false;
@@ -219,37 +219,24 @@ class UPortalRenderCapability : UCapability
         return false;
     }
     
-    private void UpdatePortalCamera()
+    private void UpdatePortalCameraTransform()
     {
         UPortalComponent LinkedPortalComp = PortalComp.GetLinkedPortal().PortalComponent;
         if (!IsValid(LinkedPortalComp))
             return;
             
-        FTransform FromTransform;
-        FTransform LinkedTransform;
+        bool bCameraSynced = PortalComp.GetIsCameraSynced();
+
+        FTransform FromTransform = bCameraSynced ? PortalOwner.GetActorTransform() : PortalComp.GetLinkedPortal().GetActorTransform();
+        FTransform LinkedTransform = bCameraSynced ? PortalComp.GetLinkedPortal().GetActorTransform() : PortalOwner.GetActorTransform();
+
+        FVector CameraToPortalLocalPos = FromTransform.InverseTransformPosition(PlayerCamera.GetWorldLocation());
+        FVector TargetLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(CameraToPortalLocalPos, LinkedTransform);
         
-        if (PortalComp.GetIsCameraSynced())
-        {
-            FromTransform = PortalOwner.GetActorTransform();
-            LinkedTransform = PortalComp.GetLinkedPortal().GetActorTransform();
-        }
-        else
-        {
-            FromTransform = PortalComp.GetLinkedPortal().GetActorTransform();
-            LinkedTransform = PortalOwner.GetActorTransform();
-        }
+        FQuat CameraToPortalLocalRot = FromTransform.GetRotation().Inverse() * PlayerCamera.GetWorldRotation().Quaternion();
+        FRotator TargetRotation = PortalTransformHelpers::TransformLocalRotationToWorldFlipped(CameraToPortalLocalRot, LinkedTransform.GetRotation(), LinkedTransform.Rotator().UpVector);
 
-        FVector Location = ComputeLinkedCameraLocation(
-            FromTransform, 
-            LinkedTransform,
-            PlayerCamera.GetWorldLocation());
-                                            
-        FRotator Rotation = ComputeLinkedCameraRotation(
-            FromTransform, 
-            LinkedTransform,
-            PlayerCamera.GetWorldRotation());
-
-        PortalComp.PortalPlayerCamera.SetWorldLocationAndRotation(Location, Rotation);
+        PortalComp.PortalPlayerCamera.SetWorldLocationAndRotation(TargetLocation, TargetRotation);
     }
     
     private void HandleSceneCapture()
@@ -267,10 +254,10 @@ class UPortalRenderCapability : UCapability
         PortalComp.GetProjectedMeshWorldCorners().Empty();
         
         // Start recursion
-        UpdateLinkedSceneCaptureRecursive(FVector::ZeroVector, FRotator::ZeroRotator, 0, PortalComp.MaxPortalRecursion);
+        UpdateLinkedSceneCaptureRecursive(0, PortalComp.MaxPortalRecursion);
     }
     
-    private void UpdateLinkedSceneCaptureRecursive(FVector OldLocation, FRotator OldRotation, int CurrentRecursion, int MaxRecursions)
+    private void UpdateLinkedSceneCaptureRecursive(int CurrentRecursion, int MaxRecursions, FVector PreviousIterationCamLocation = FVector::ZeroVector, FRotator PreviousIterationCamRotation = FRotator::ZeroRotator)
     {
         UPortalComponent LinkedPortalComp = PortalComp.GetLinkedPortal().PortalComponent;
         if (!IsValid(LinkedPortalComp))
@@ -278,131 +265,58 @@ class UPortalRenderCapability : UCapability
             Log(n"Error", f"Linked portal component is not valid for {GetName()}. Cannot update linked scene capture.");
             return;
         }
-            
-        UCameraComponent Camera = PortalComp.GetIsCameraSynced() ? PlayerCamera : PortalComp.PortalPlayerCamera;
-        
+                   
+        FVector CurrentCamLocation;
+        FRotator CurrentCamRotation;
+        const FTransform& ThisPortalTransform = PortalOwner.GetActorTransform();
+        const FTransform& TargetLinkedPortalTransform = PortalComp.GetLinkedPortal().GetActorTransform();
+
         if (CurrentRecursion == 0)
         {
-            if (!IsValid(Camera))
+            APlayerCameraManager PlayerCameraManager = Gameplay::GetPlayerCameraManager(0);
+
+            if(!IsValid(PlayerCameraManager))
             {
-                Log(n"PortalRenderCapability", f"Camera is not valid for {GetName()}. Cannot update linked scene capture.");
+                Log(n"Error", f"Player camera manager is not valid for {GetName()}. Cannot update linked scene capture.");
                 return;
             }
 
-            FVector TempLocation = ComputeLinkedCameraLocation(
-                PortalOwner.GetActorTransform(), 
-                PortalComp.GetLinkedPortal().GetActorTransform(), 
-                Camera.GetWorldLocation());
-                                                            
-            FRotator TempRotation = ComputeLinkedCameraRotation(
-                PortalOwner.GetActorTransform(), 
-                PortalComp.GetLinkedPortal().GetActorTransform(), 
-                Camera.GetWorldRotation());
-                                                            
-            LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(TempLocation, TempRotation);
-
-            // Continue recursion if the portal is visible
-            if (CanSeePortalTransformed(CurrentRecursion))
-            {
-                UpdateLinkedSceneCaptureRecursive(TempLocation, TempRotation, CurrentRecursion + 1, MaxRecursions);
-            }
-          
-            LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(TempLocation, TempRotation);
-            LinkedPortalComp.PortalSceneCapture.CaptureScene();
-        }
-        else if (CurrentRecursion < MaxRecursions)
-        {            
-            FVector TempLocation = ComputeLinkedCameraLocation(
-                PortalOwner.GetActorTransform(), 
-                PortalComp.GetLinkedPortal().GetActorTransform(), 
-                OldLocation);
-                                                            
-            FRotator TempRotation = ComputeLinkedCameraRotation(
-                PortalOwner.GetActorTransform(), 
-                PortalComp.GetLinkedPortal().GetActorTransform(), 
-                OldRotation);
-                                                            
-            LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(TempLocation, TempRotation);
-
-            // Continue recursion if the portal is visible
-            if (CanSeePortalTransformed(CurrentRecursion))
-            {
-                UpdateLinkedSceneCaptureRecursive(TempLocation, TempRotation, CurrentRecursion + 1, MaxRecursions);
-            }
-
-            LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(TempLocation, TempRotation);
-            LinkedPortalComp.PortalSceneCapture.CaptureScene();
-        }
-        else
-        {
-            FVector Location = ComputeLinkedCameraLocation(
-                PortalOwner.GetActorTransform(), 
-                PortalComp.GetLinkedPortal().GetActorTransform(), 
-                OldLocation);
-                                                        
-            FRotator Rotation = ComputeLinkedCameraRotation(
-                PortalOwner.GetActorTransform(), 
-                PortalComp.GetLinkedPortal().GetActorTransform(), 
-                OldRotation);
-                                                        
-            LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(Location, Rotation);
+            FVector LocalPos = ThisPortalTransform.InverseTransformPosition(PlayerCameraManager.GetCameraLocation());
+            CurrentCamLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(LocalPos, TargetLinkedPortalTransform);
             
-            // Final recursion - always render but hide portal to avoid recursion artifacts
-            bool bWasHidden = PortalOwner.IsHidden();
+            FQuat LocalRot = ThisPortalTransform.GetRotation().Inverse() * PlayerCameraManager.GetCameraRotation().Quaternion();
+            CurrentCamRotation = PortalTransformHelpers::TransformLocalRotationToWorldFlipped(LocalRot, TargetLinkedPortalTransform.GetRotation(), TargetLinkedPortalTransform.Rotator().UpVector);
+        }
+        else 
+        {            
+            FVector LocalPos = ThisPortalTransform.InverseTransformPosition(PreviousIterationCamLocation);
+            CurrentCamLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(LocalPos, TargetLinkedPortalTransform);
+            
+            FQuat LocalRot = ThisPortalTransform.GetRotation().Inverse() * PreviousIterationCamRotation.Quaternion();
+            CurrentCamRotation = PortalTransformHelpers::TransformLocalRotationToWorldFlipped(LocalRot, TargetLinkedPortalTransform.GetRotation(), TargetLinkedPortalTransform.Rotator().UpVector);
+        }
+
+        // Set the camera transform for the final capture and for checking visibility
+        LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(CurrentCamLocation, CurrentCamRotation);
+
+        // Final recursion - always render but hide portal to avoid recursion artifacts
+        if(CurrentRecursion == MaxRecursions - 1)
+        {
             PortalOwner.SetActorHiddenInGame(true);
             LinkedPortalComp.PortalSceneCapture.CaptureScene();
-            PortalOwner.SetActorHiddenInGame(bWasHidden);
-
+            PortalOwner.SetActorHiddenInGame(false);
+            return;
         }
-    }
-    
-    private FVector ComputeLinkedCameraLocation(FTransform FromTransform, FTransform LinkedTransform, FVector OldLocation)
-    {
-        // Create a mirrored transform
-        FVector Scale = FromTransform.GetScale3D();
-        Scale.X *= -1;
-        Scale.Y *= -1;
-        FTransform MirrorTransform(FromTransform.Rotation, FromTransform.Location, Scale);
-        
-        // Transform camera position through the portal
-        FVector LocalCameraPos = MirrorTransform.InverseTransformPosition(OldLocation);
-        return LinkedTransform.TransformPosition(LocalCameraPos);
-    }
 
-    private FRotator ComputeLinkedCameraRotation(FTransform FromTransform, FTransform LinkedTransform, FRotator OldRotation)
-    {
-        // Extract camera axes
-        FVector CameraForward = OldRotation.GetForwardVector();
-        FVector CameraRight = OldRotation.GetRightVector();
-        FVector CameraUp = OldRotation.GetUpVector();
-
-        // Create array of axes to transform
-        TArray<FVector> LocalAxes;
-        LocalAxes.Add(CameraForward);
-        LocalAxes.Add(CameraRight);
-        LocalAxes.Add(CameraUp);
-
-        TArray<FVector> TransformedAxes;
-        TransformedAxes.SetNum(LocalAxes.Num());
-
-        // Transform each axis
-        for (int32 i = 0; i < LocalAxes.Num(); i++)
+        // Continue recursion if the portal is visible
+        if(CanSeePortalTransformed(CurrentRecursion))
         {
-            FVector LocalAxis = FromTransform.InverseTransformVectorNoScale(LocalAxes[i]);
-            FVector MirroredAxis = MirrorVectorXY(LocalAxis);
-            TransformedAxes[i] = LinkedTransform.TransformVectorNoScale(MirroredAxis);
+            UpdateLinkedSceneCaptureRecursive(CurrentRecursion + 1, MaxRecursions, CurrentCamLocation, CurrentCamRotation);
         }
 
-        // Create new rotation from transformed axes
-        return FRotator::MakeFromAxes(TransformedAxes[0], TransformedAxes[1], TransformedAxes[2]);
-    }
-    
-    private FVector MirrorVectorXY(const FVector& Vector) const
-    {
-        // Mirror vector along X and Y axes
-        FVector MirroredVec = Vector.MirrorByVector(FVector(1, 0, 0)); 
-        MirroredVec = MirroredVec.MirrorByVector(FVector(0, 1, 0));
-        return MirroredVec;
+        // Set the camera transform for the linked portal scene capture again (since this can we changed during recursion) and capture the scene 
+        LinkedPortalComp.PortalSceneCapture.SetWorldLocationAndRotation(CurrentCamLocation, CurrentCamRotation);
+        LinkedPortalComp.PortalSceneCapture.CaptureScene();
     }
     
     private void UpdateClippingPlane()
@@ -450,6 +364,9 @@ class UPortalRenderCapability : UCapability
             }
         }
 
+        // DrawDebugProjectedPolygon(ProjectedFrameCorners, FLinearColor::Red, 0.0f);
+        // DrawDebugProjectedPolygon(OuterProjectedFrameCorners.ProjectedCorners, FLinearColor::Green, 5.0f);
+        
         // Check if the inner portal is visible in all previous projections
         for (int i = 0; i < PortalComp.GetProjectedMeshWorldCorners().Num(); i++)
         {
@@ -512,8 +429,7 @@ class UPortalRenderCapability : UCapability
     // --- Debug Methods ---
 
     // Draw the 2D projected polygon on a flat plane near world origin
-    private void DrawDebugProjectedPolygon(const TArray<FVector2D>& ProjectedCorners, FLinearColor Color, 
-                                        float ZOffset = 0.0f, float Duration = 0.0f, float Thickness = 2.0f)
+    private void DrawDebugProjectedPolygon(const TArray<FVector2D>& ProjectedCorners, FLinearColor Color, float ZOffset = 0.0f, float Duration = 0.0f, float Thickness = 2.0f)
     {
         if (ProjectedCorners.Num() < 3)
             return;

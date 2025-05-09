@@ -1,6 +1,6 @@
 class UPortalTeleporterCapability : UCapability
 {
-    default Priority = ECapabilityPriority::Movement;
+    default Priority = ECapabilityPriority::PostMovement;
 
     private APortalActor PortalOwner;
     private UPortalComponent PortalComp;
@@ -118,11 +118,10 @@ class UPortalTeleporterCapability : UCapability
             
         TArray<AActor> OverlappingActors;
         PortalComp.TeleportTriggerVolume.GetOverlappingActors(OverlappingActors);
-        OverlappingActors.Remove(PortalOwner);
 
         for (AActor OverlappingActor : OverlappingActors)
         {
-            if (!IsValid(OverlappingActor))
+            if (!IsValid(OverlappingActor) || OverlappingActor == Owner)
                 continue;
             
             // First, check if the actor has crossed the portal plane            
@@ -130,11 +129,11 @@ class UPortalTeleporterCapability : UCapability
             {
                 TeleportActor(OverlappingActor);
                 
-                // Check if this is a player-controlled pawn
-                APawn TeleportedPawn = Cast<APawn>(OverlappingActor);
-                if (IsValid(TeleportedPawn) && TeleportedPawn.IsPlayerControlled())
+                // If it's the local player character, initiate camera transition
+                ACharacter LocalPlayerCharacter = Gameplay::GetPlayerCharacter(0); // TODO: Find a better way of doing this when the project goes multiplayer
+                if (OverlappingActor == LocalPlayerCharacter)
                 {
-                    InitiateCameraTransition();
+                    SwitchCamera(false);
                 }
             }
         }
@@ -159,152 +158,107 @@ class UPortalTeleporterCapability : UCapability
         PortalComp.TrackActor(Actor);
         return false;
     }
-
-    private bool IsActorIntersectingPortalPlane(AActor Actor, float BufferDistance = 0.0f)
-    {
-        if (!IsValid(Actor))
-            return false;
-        
-        // Get the actor's bounds
-        FVector Location;
-        FVector Extent;
-        Actor.GetActorBounds(true, Location, Extent);
-        FBox ActorBounds = FBox(Location - Extent, Location + Extent);
-        
-        // Portal plane information
-        FVector PortalLocation = PortalOwner.GetActorLocation();
-        FVector PortalNormal = PortalOwner.GetActorForwardVector();
-        
-        // Use portal mesh corners as bounds
-        TArray<FVector> PortalBounds = PortalComp.GetMeshWorldCorners();
-        
-        // Calculate if any part of the actor is within buffer distance of the portal plane
-        bool bIntersectingWithBuffer = false;
-        
-        // Get the 8 corners of the bounding box
-        TArray<FVector> Corners;
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
-        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
-        
-        bool bHasPointInFront = false;
-        bool bHasPointBehind = false;
-        
-        for (const FVector& Corner : Corners)
-        {
-            float Distance = (Corner - PortalLocation).DotProduct(PortalNormal);
-            
-            if (Distance > -BufferDistance) // In front or within buffer
-                bHasPointInFront = true;
-            if (Distance < BufferDistance) // Behind or within buffer
-                bHasPointBehind = true;
-            
-            // If we have points on both sides or within buffer, the actor is intersecting the plane
-            if (bHasPointInFront && bHasPointBehind)
-                return true;
-        }
-        
-        return false;
-    }
-    
-    private void InitiateCameraTransition()
-    {           
-        // Set camera synced state to false
-        PortalComp.SetCameraSynced(false);
-        
-        // Blend to portal camera view
-        APlayerController Controller = Gameplay::GetPlayerController(0);
-        if (IsValid(Controller))
-            Controller.SetViewTargetWithBlend(PortalOwner);
-            
-        PortalComp.SetCameraTransitionActive(true);
-    }
     
     private void HandleCameraTransition()
     {
         if (IsCameraClippingPortalPlane())
-        {
-            SwitchToPlayerCamera();
-        }
+            SwitchCamera(true);
     }
 
-    private void SwitchToPlayerCamera()
+    private void SwitchCamera(bool bToPlayerCamera)
     {
-        ASPlayerController Controller = Cast<ASPlayerController>(Gameplay::GetPlayerController(0));
+        APlayerController Controller = Gameplay::GetPlayerController(0);
         if (IsValid(Controller))
         {
+            AActor Target = bToPlayerCamera ? Gameplay::GetPlayerCharacter(0) : PortalOwner;
+            Controller.SetViewTargetWithBlend(Target);
             Controller.PlayerCameraManager.SetGameCameraCutThisFrame();
-            Controller.SetViewTargetWithBlend(Gameplay::GetPlayerCharacter(0));
+            PortalComp.SetCameraSynced(bToPlayerCamera);
+            PortalComp.SetCameraTransitionActive(!bToPlayerCamera);
         }
-            
-        PortalComp.SetCameraSynced(true);
-        PortalComp.SetCameraTransitionActive(false);
     }
     
     private bool IsCameraClippingPortalPlane()
     {          
-        float Distance = (PortalComp.PortalFrameMesh.GetWorldLocation() - PortalComp.PortalPlayerCamera.GetWorldLocation())
-                         .DotProduct(PortalOwner.GetActorForwardVector());
+        float Distance = 
+            (PortalComp.PortalFrameMesh.GetWorldLocation() - PortalComp.PortalPlayerCamera.GetWorldLocation())
+            .DotProduct(PortalOwner.GetActorForwardVector());
                          
         return Math::Abs(Distance) <= PortalComp.NearClipDistance * 2.0f;
     }
     
-    private void TeleportActor(AActor TargetActor)
+    void TeleportActor(AActor TargetActor)
     {
-        if (!IsValid(TargetActor) || !IsValid(PortalComp.GetLinkedPortal()))
-            return;
-            
-        // Calculate new position and rotation
-        FVector NewLocation = ComputeTeleportedLocation(TargetActor);
-        FRotator NewRotation = ComputeTeleportedRotation(TargetActor);
+        NotifyLinkedPortalOfTeleport(TargetActor);
 
-        // Before teleporting, tell linked portal to start tracking this actor
+        PortalComp.AddTeleportedActor(TargetActor);
+
+        FTransform TargetTransform = CalculateTeleportTargetTransform(TargetActor);
+        TargetActor.SetActorLocationAndRotation(TargetTransform.GetLocation(), TargetTransform.GetRotation(), true);
+
+        APawn Pawn = Cast<APawn>(TargetActor);
+        if (IsValid(Pawn))
+        {
+            AdjustControllerRotationPostTeleport(Pawn, TargetTransform.GetRotation().Rotator());
+        }
+
+        AdjustVelocityPostTeleport(TargetActor);
+    }
+
+    private FTransform CalculateTeleportTargetTransform(const AActor TargetActor) const
+    {
+        const FTransform& SourcePortalTransform = PortalOwner.GetActorTransform();
+        const FTransform& LinkedPortalTransform = PortalComp.GetLinkedPortal().GetActorTransform();
+
+        // Location
+        FVector ActorToPortalLocalPos = SourcePortalTransform.InverseTransformPosition(TargetActor.GetActorLocation());
+        FVector TargetLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(ActorToPortalLocalPos, LinkedPortalTransform);
+
+        // Rotation
+        FQuat ActorToPortalLocalRot = SourcePortalTransform.GetRotation().Inverse() * TargetActor.GetActorQuat();
+        FRotator TargetRotation = 
+            PortalTransformHelpers::TransformLocalRotationToWorldFlipped(
+                ActorToPortalLocalRot, 
+                LinkedPortalTransform.GetRotation(), 
+                LinkedPortalTransform.GetRotation().GetUpVector()
+            );
+
+        return FTransform(TargetRotation, TargetLocation, TargetActor.GetActorScale3D());
+    }
+
+    private void NotifyLinkedPortalOfTeleport(AActor TargetActor)
+    {
         UPortalComponent LinkedPortalComp = PortalComp.GetLinkedPortal().PortalComponent;
         if (IsValid(LinkedPortalComp))
         {
-            // Add to tracked actors on the linked portal
             LinkedPortalComp.TrackActor(TargetActor);
-            
-            // Let linked portal know this is a teleported actor
-            LinkedPortalComp.AddTeleportedActor(TargetActor);
-            
-            // If this actor has a duplicate, transfer responsibility to linked portal
+            LinkedPortalComp.AddTeleportedActor(TargetActor); // Mark as having arrived via teleport
+
             if (PortalComp.GetDuplicatedActors().Contains(TargetActor))
             {
                 PortalComp.TransferDuplicateToLinkedPortal(TargetActor);
             }
         }
+    }
 
-        // Mark as teleported in our portal
-        PortalComp.AddTeleportedActor(TargetActor);
+    private void AdjustControllerRotationPostTeleport(APawn TeleportedPawn, const FRotator& NewActorRotation)
+    {
+        if (!IsValid(TeleportedPawn)) 
+            return;
 
-        // Set new position and rotation
-        TargetActor.SetActorLocationAndRotation(NewLocation, NewRotation);
-
-        // Handle controller rotation if applicable
-        APawn Pawn = Cast<APawn>(TargetActor);
-        if (IsValid(Pawn) && IsValid(Pawn.GetController()))
+        AController Controller = TeleportedPawn.GetController();
+        if (IsValid(Controller))
         {
-            AController Controller = Pawn.GetController();
-            if (IsValid(Controller))
-            {
-                // Preserve pitch and roll from controller
-                FRotator ControllerRotation = Controller.ActorRotation;
-                NewRotation.Pitch = ControllerRotation.Pitch;
-                NewRotation.Roll = ControllerRotation.Roll;
-                Controller.SetControlRotation(NewRotation);
-            }
+            FRotator CurrentControllerRot = Controller.GetControlRotation();
+            CurrentControllerRot.Yaw = NewActorRotation.Yaw;
+            Controller.SetControlRotation(CurrentControllerRot);
         }
+    }
 
-        // Handle velocity
+    void AdjustVelocityPostTeleport(AActor TargetActor)
+    {
         FVector OldVelocity = TargetActor.GetVelocity();
-        
-        // Try to find the right component to apply velocity
+
         UCharacterMovementComponent CharMove = UCharacterMovementComponent::Get(TargetActor);
         if (IsValid(CharMove))
         {
@@ -312,7 +266,6 @@ class UPortalTeleporterCapability : UCapability
         }
         else
         {
-            // Check for physics objects
             UPrimitiveComponent PrimComp = Cast<UPrimitiveComponent>(TargetActor.GetRootComponent());
             if (IsValid(PrimComp) && PrimComp.IsSimulatingPhysics())
             {
@@ -330,62 +283,13 @@ class UPortalTeleporterCapability : UCapability
         }
     }
 
-
-    
-    private FVector ComputeTeleportedLocation(AActor TargetActor)
-    {
-        if (!IsValid(TargetActor))
-            return TargetActor.GetActorLocation();
-
-        // Convert to local space relative to source portal
-        FVector LocalOffset = PortalOwner.GetActorTransform().InverseTransformPosition(TargetActor.GetActorLocation());
-        
-        // Mirror the position
-        LocalOffset.X = -LocalOffset.X;
-        LocalOffset.Y = -LocalOffset.Y;
-
-        // Transform to world space relative to destination portal
-        return PortalComp.GetLinkedPortal().GetActorTransform().TransformPosition(LocalOffset);
-    }
-
-    private FRotator ComputeTeleportedRotation(AActor Actor)
-    {
-        if (!IsValid(Actor))
-            return Actor.GetActorRotation();
-
-        // Get quaternions for easy rotation math
-        FQuat ActorQuat = Actor.GetActorQuat();
-        FQuat SourcePortalQuat = PortalOwner.GetActorQuat();
-        FQuat DestPortalQuat = PortalComp.GetLinkedPortal().GetActorQuat();
-
-        // Calculate rotation relative to source portal
-        FQuat RelativeQuat = SourcePortalQuat.Inverse() * ActorQuat;
-
-        // Create 180-degree flip quaternion
-        FQuat FlipQuat = FQuat(PortalOwner.GetActorUpVector(), PI);
-        
-        // Mirror the rotation
-        FQuat MirroredRelativeQuat = FlipQuat * RelativeQuat;
-
-        // Calculate new world rotation
-        FQuat NewWorldQuat = DestPortalQuat * MirroredRelativeQuat;
-        return NewWorldQuat.Rotator();
-    }
-
     private FVector ComputeTeleportedVelocity(FVector OldVelocity)
     {
-        // Get quaternions for source and destination portals
-        FQuat SourcePortalQuat = PortalOwner.GetActorQuat();
-        FQuat DestPortalQuat = PortalComp.GetLinkedPortal().GetActorQuat();
-
-        // Convert velocity to local space
+        const FQuat SourcePortalQuat = PortalOwner.GetActorQuat();
+        const FQuat DestPortalQuat = PortalComp.GetLinkedPortal().GetActorQuat();
+        const FVector FlipAxis = PortalComp.GetLinkedPortal().GetActorUpVector(); // Or PortalOwner.GetActorUpVector()
         FVector LocalVelocity = SourcePortalQuat.Inverse().RotateVector(OldVelocity);
 
-        // Mirror velocity
-        FQuat FlipQuat = FQuat(PortalOwner.GetActorUpVector(), PI);
-        FVector MirroredLocalVelocity = FlipQuat.RotateVector(LocalVelocity);
-
-        // Transform to destination portal space
-        return DestPortalQuat.RotateVector(MirroredLocalVelocity);
+        return PortalTransformHelpers::TransformLocalVectorToWorldFlipped(LocalVelocity, DestPortalQuat, FlipAxis);
     }
 }

@@ -17,12 +17,12 @@ class UPortalSubsystem : UScriptWorldSubsystem
 
         if(ActivePortals.Num() == 2)
         {
-            ActivePortals[0].SetLinkedPortal(ActivePortals[1]);
-            ActivePortals[1].SetLinkedPortal(ActivePortals[0]);
+            ActivePortals[0].PortalComponent.SetLinkedPortal(ActivePortals[1]);
+            ActivePortals[1].PortalComponent.SetLinkedPortal(ActivePortals[0]);
         }
         else if(ActivePortals.Num() == 1)
         {
-            ActivePortals[0].SetLinkedPortal(nullptr);
+            ActivePortals[0].PortalComponent.SetLinkedPortal(nullptr);
         }
 
     }

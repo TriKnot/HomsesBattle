@@ -16,6 +16,15 @@ class UPortalComponent : UActorComponent
     UPROPERTY(EditDefaultsOnly, Category = "Portal|Performance")
     float TrackedActorCleanupInterval = 0.5f;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplicate")
+    float DuplicateTransitionTime = 0.1f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
+    float SpawnDuplicateBufferDistance = 150.0f;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
+    float RemoveDuplicateBufferDistance = 150.0f;
+    
     // --- Components References ---
     UPROPERTY(DefaultComponent, Attach = Root)
     UStaticMeshComponent PortalFrameMesh;   
@@ -44,24 +53,24 @@ class UPortalComponent : UActorComponent
     private TArray<AActor> TeleportedActors;
     private TMap<AActor, FDuplicateInfo> DuplicatedActors;
 
-    TMap<AActor, FDuplicateInfo>& GetDuplicatedActors()
-    {
-        return DuplicatedActors;
+    const TMap<AActor, FDuplicateInfo>& GetDuplicatedActors() 
+    { 
+        return DuplicatedActors; 
     }
 
-    void RegisterDuplicate(AActor OriginalActor, AActor DuplicateActor, bool bTeleported = false)
+    void RegisterDuplicate(const AActor OriginalActor, AActor DuplicateActor, bool bTeleported = false)
     {
         if (IsValid(OriginalActor) && IsValid(DuplicateActor))
         {
-            FDuplicateInfo DuplicateInfo;
-            DuplicateInfo.DuplicateActor = DuplicateActor;
-            DuplicateInfo.bOriginalWasTeleported = bTeleported;
+            FDuplicateInfo Info;
+            Info.DuplicateActor = DuplicateActor;
+            Info.bOriginalWasTeleported = bTeleported;
             
-            DuplicatedActors.Add(OriginalActor, DuplicateInfo);
+            DuplicatedActors.Add(OriginalActor, Info);
         }
     }
 
-    void UpdateDuplicateStatus(AActor OriginalActor, bool bTeleported)
+    void UpdateDuplicateStatus(const AActor OriginalActor, bool bTeleported)
     {
         if (DuplicatedActors.Contains(OriginalActor))
         {
@@ -69,12 +78,17 @@ class UPortalComponent : UActorComponent
         }
     }
 
-    void RemoveDuplicate(AActor OriginalActor)
+    void RemoveDuplicate(const AActor OriginalActor)
     {
         DuplicatedActors.Remove(OriginalActor);
     }
 
-    AActor GetDuplicateActor(AActor OriginalActor)
+    void EmptyDuplicatedActors() 
+    { 
+        DuplicatedActors.Empty(); 
+    }
+
+    AActor GetDuplicateActor(const AActor OriginalActor)
     {
         if (DuplicatedActors.Contains(OriginalActor))
         {
@@ -83,7 +97,7 @@ class UPortalComponent : UActorComponent
         return nullptr;
     }
 
-    bool IsActorTeleported(AActor OriginalActor)
+    bool IsActorTeleported(const AActor OriginalActor)
     {
         if (DuplicatedActors.Contains(OriginalActor))
         {
@@ -92,12 +106,12 @@ class UPortalComponent : UActorComponent
         return false;
     }
 
-    void TransferDuplicateToLinkedPortal(AActor OriginalActor)
+    void TransferDuplicateToLinkedPortal(const AActor OriginalActor)
     {
         if (!IsValid(LinkedPortal) || !DuplicatedActors.Contains(OriginalActor))
             return;
                 
-        FDuplicateInfo DuplicateInfo = DuplicatedActors[OriginalActor];
+        FDuplicateInfo& DuplicateInfo = DuplicatedActors[OriginalActor];
         
         // Mark as in transition state and store current time
         DuplicateInfo.bInTransition = true;
@@ -105,7 +119,6 @@ class UPortalComponent : UActorComponent
         
         // Update teleported status
         DuplicateInfo.bOriginalWasTeleported = true;
-        DuplicatedActors[OriginalActor] = DuplicateInfo;
         
         // Register the duplicate with the linked portal, mark that it's still in transition
         LinkedPortal.PortalComponent.RegisterDuplicate(OriginalActor, DuplicateInfo.DuplicateActor, true);
@@ -165,11 +178,11 @@ class UPortalComponent : UActorComponent
         return TrackedActors;
     }
 
-    void SetCameraSynced(bool bNewCameraSynced)
+    void SetCameraSynced(bool bInCameraSynced)
     {
-        bCameraSynced = bNewCameraSynced;
+        bCameraSynced = bInCameraSynced;
         if (IsValid(LinkedPortal))
-            LinkedPortal.PortalComponent.bCameraSynced = bNewCameraSynced;
+            LinkedPortal.PortalComponent.bCameraSynced = bInCameraSynced;
     }
     
     bool GetIsCameraSynced() const property
