@@ -10,7 +10,9 @@ class APortalActor : AActor
     UCapabilityComponent CapabilityComponent;
     default CapabilityComponent.AddCapability(UPortalRenderCapability::StaticClass());
     default CapabilityComponent.AddCapability(UPortalTeleporterCapability::StaticClass());
-    default CapabilityComponent.SetTickGroup(ETickingGroup::TG_LastDemotable);
+    default CapabilityComponent.AddCapability(UPortalDuplicateActorCapability::StaticClass());
+    
+    default CapabilityComponent.SetTickGroup(ETickingGroup::TG_LastDemotable); // TODO: Change this once we have a central system for ticking capabilities
     
     void SetLinkedPortal(APortalActor OtherPortal)
     {

@@ -78,7 +78,6 @@ class UPortalRenderCapability : UCapability
 
         // Setup collision for portal frame
         PortalComp.PortalFrameMesh.SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
-        PortalComp.PortalFrameMesh.SetCollisionResponseToChannel(ECollisionChannel::ECC_GameTraceChannel1, ECollisionResponse::ECR_Block);
     }
     
     private void SetupSceneCapture()

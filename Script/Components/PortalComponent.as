@@ -18,7 +18,7 @@ class UPortalComponent : UActorComponent
 
     // --- Components References ---
     UPROPERTY(DefaultComponent, Attach = Root)
-    UStaticMeshComponent PortalFrameMesh;
+    UStaticMeshComponent PortalFrameMesh;   
     
     UPROPERTY(DefaultComponent, Attach = Root)
     UBoxComponent TeleportTriggerVolume;
@@ -41,6 +41,76 @@ class UPortalComponent : UActorComponent
     private TMap<int, FProjectedPortalCorners> ProjectedMeshWorldCorners;
     private bool bCameraSynced = true;
     private bool bCameraTransitionActive = false;
+    private TArray<AActor> TeleportedActors;
+    private TMap<AActor, FDuplicateInfo> DuplicatedActors;
+
+    TMap<AActor, FDuplicateInfo>& GetDuplicatedActors()
+    {
+        return DuplicatedActors;
+    }
+
+    void RegisterDuplicate(AActor OriginalActor, AActor DuplicateActor, bool bTeleported = false)
+    {
+        if (IsValid(OriginalActor) && IsValid(DuplicateActor))
+        {
+            FDuplicateInfo DuplicateInfo;
+            DuplicateInfo.DuplicateActor = DuplicateActor;
+            DuplicateInfo.bOriginalWasTeleported = bTeleported;
+            
+            DuplicatedActors.Add(OriginalActor, DuplicateInfo);
+        }
+    }
+
+    void UpdateDuplicateStatus(AActor OriginalActor, bool bTeleported)
+    {
+        if (DuplicatedActors.Contains(OriginalActor))
+        {
+            DuplicatedActors[OriginalActor].bOriginalWasTeleported = bTeleported;
+        }
+    }
+
+    void RemoveDuplicate(AActor OriginalActor)
+    {
+        DuplicatedActors.Remove(OriginalActor);
+    }
+
+    AActor GetDuplicateActor(AActor OriginalActor)
+    {
+        if (DuplicatedActors.Contains(OriginalActor))
+        {
+            return DuplicatedActors[OriginalActor].DuplicateActor;
+        }
+        return nullptr;
+    }
+
+    bool IsActorTeleported(AActor OriginalActor)
+    {
+        if (DuplicatedActors.Contains(OriginalActor))
+        {
+            return DuplicatedActors[OriginalActor].bOriginalWasTeleported;
+        }
+        return false;
+    }
+
+    void TransferDuplicateToLinkedPortal(AActor OriginalActor)
+    {
+        if (!IsValid(LinkedPortal) || !DuplicatedActors.Contains(OriginalActor))
+            return;
+                
+        FDuplicateInfo DuplicateInfo = DuplicatedActors[OriginalActor];
+        
+        // Mark as in transition state and store current time
+        DuplicateInfo.bInTransition = true;
+        DuplicateInfo.TransitionStartTime = System::GetGameTimeInSeconds();
+        
+        // Update teleported status
+        DuplicateInfo.bOriginalWasTeleported = true;
+        DuplicatedActors[OriginalActor] = DuplicateInfo;
+        
+        // Register the duplicate with the linked portal, mark that it's still in transition
+        LinkedPortal.PortalComponent.RegisterDuplicate(OriginalActor, DuplicateInfo.DuplicateActor, true);
+    }
+
 
     void SetLinkedPortal(APortalActor OtherPortal)
     {
@@ -130,6 +200,23 @@ class UPortalComponent : UActorComponent
     TMap<int, FProjectedPortalCorners>& GetProjectedMeshWorldCorners()
     {
         return ProjectedMeshWorldCorners;
+    }
+
+    TArray<AActor> GetTeleportedActors() const
+    {
+        return TeleportedActors;
+    }
+
+    void AddTeleportedActor(AActor Actor)
+    {
+        if (IsValid(Actor))
+            TeleportedActors.AddUnique(Actor);
+    }
+
+    void RemoveTeleportedActor(AActor Actor)
+    {
+        if (IsValid(Actor))
+            TeleportedActors.Remove(Actor);
     }
     
     UFUNCTION()

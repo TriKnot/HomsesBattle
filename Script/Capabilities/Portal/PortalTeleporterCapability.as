@@ -62,7 +62,6 @@ class UPortalTeleporterCapability : UCapability
     }
     
     // --- Setup Methods ---
-    
     private void SetupTeleportTriggerVolume()
     {
         PortalComp.TeleportTriggerVolume = UBoxComponent::Get(PortalOwner, n"TeleportTriggerVolume");
@@ -126,7 +125,8 @@ class UPortalTeleporterCapability : UCapability
             if (!IsValid(OverlappingActor))
                 continue;
             
-            if (ShouldTeleport(OverlappingActor))
+            // First, check if the actor has crossed the portal plane            
+            if (HasCrossedPortalPlane(OverlappingActor))
             {
                 TeleportActor(OverlappingActor);
                 
@@ -139,12 +139,12 @@ class UPortalTeleporterCapability : UCapability
             }
         }
     }
-    
-    private bool ShouldTeleport(AActor Actor)
+
+    private bool HasCrossedPortalPlane(AActor Actor)
     {
-        if (!IsValid(Actor))
+        if (!IsValid(Actor) || !PortalComp.IsCameraSynced)
             return false;
-            
+                
         FVector CurrentLocation = Actor.GetActorLocation();
         TMap<AActor, FVector>& TrackedActors = PortalComp.GetTrackedActors();
 
@@ -153,11 +153,63 @@ class UPortalTeleporterCapability : UCapability
             FVector PreviousLocation = TrackedActors[Actor];
             bool HasCrossed = PortalComp.IsBehindPortal(CurrentLocation) && !PortalComp.IsBehindPortal(PreviousLocation);
             TrackedActors[Actor] = CurrentLocation;
-            return HasCrossed; 
+            return HasCrossed;
         }
 
         PortalComp.TrackActor(Actor);
-        return false; 
+        return false;
+    }
+
+    private bool IsActorIntersectingPortalPlane(AActor Actor, float BufferDistance = 0.0f)
+    {
+        if (!IsValid(Actor))
+            return false;
+        
+        // Get the actor's bounds
+        FVector Location;
+        FVector Extent;
+        Actor.GetActorBounds(true, Location, Extent);
+        FBox ActorBounds = FBox(Location - Extent, Location + Extent);
+        
+        // Portal plane information
+        FVector PortalLocation = PortalOwner.GetActorLocation();
+        FVector PortalNormal = PortalOwner.GetActorForwardVector();
+        
+        // Use portal mesh corners as bounds
+        TArray<FVector> PortalBounds = PortalComp.GetMeshWorldCorners();
+        
+        // Calculate if any part of the actor is within buffer distance of the portal plane
+        bool bIntersectingWithBuffer = false;
+        
+        // Get the 8 corners of the bounding box
+        TArray<FVector> Corners;
+        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
+        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
+        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
+        Corners.Add(FVector(ActorBounds.Min.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
+        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Min.Z));
+        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Min.Y, ActorBounds.Max.Z));
+        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Min.Z));
+        Corners.Add(FVector(ActorBounds.Max.X, ActorBounds.Max.Y, ActorBounds.Max.Z));
+        
+        bool bHasPointInFront = false;
+        bool bHasPointBehind = false;
+        
+        for (const FVector& Corner : Corners)
+        {
+            float Distance = (Corner - PortalLocation).DotProduct(PortalNormal);
+            
+            if (Distance > -BufferDistance) // In front or within buffer
+                bHasPointInFront = true;
+            if (Distance < BufferDistance) // Behind or within buffer
+                bHasPointBehind = true;
+            
+            // If we have points on both sides or within buffer, the actor is intersecting the plane
+            if (bHasPointInFront && bHasPointBehind)
+                return true;
+        }
+        
+        return false;
     }
     
     private void InitiateCameraTransition()
@@ -204,12 +256,32 @@ class UPortalTeleporterCapability : UCapability
     
     private void TeleportActor(AActor TargetActor)
     {
-        if (!IsValid(TargetActor))
+        if (!IsValid(TargetActor) || !IsValid(PortalComp.GetLinkedPortal()))
             return;
             
         // Calculate new position and rotation
         FVector NewLocation = ComputeTeleportedLocation(TargetActor);
         FRotator NewRotation = ComputeTeleportedRotation(TargetActor);
+
+        // Before teleporting, tell linked portal to start tracking this actor
+        UPortalComponent LinkedPortalComp = PortalComp.GetLinkedPortal().PortalComponent;
+        if (IsValid(LinkedPortalComp))
+        {
+            // Add to tracked actors on the linked portal
+            LinkedPortalComp.TrackActor(TargetActor);
+            
+            // Let linked portal know this is a teleported actor
+            LinkedPortalComp.AddTeleportedActor(TargetActor);
+            
+            // If this actor has a duplicate, transfer responsibility to linked portal
+            if (PortalComp.GetDuplicatedActors().Contains(TargetActor))
+            {
+                PortalComp.TransferDuplicateToLinkedPortal(TargetActor);
+            }
+        }
+
+        // Mark as teleported in our portal
+        PortalComp.AddTeleportedActor(TargetActor);
 
         // Set new position and rotation
         TargetActor.SetActorLocationAndRotation(NewLocation, NewRotation);
@@ -237,24 +309,28 @@ class UPortalTeleporterCapability : UCapability
         if (IsValid(CharMove))
         {
             CharMove.Velocity = ComputeTeleportedVelocity(OldVelocity);
-            return;
         }
-        
-        // Check for physics objects
-        UPrimitiveComponent PrimComp = Cast<UPrimitiveComponent>(TargetActor.GetRootComponent());
-        if (IsValid(PrimComp) && PrimComp.IsSimulatingPhysics())
+        else
         {
-            PrimComp.SetPhysicsLinearVelocity(ComputeTeleportedVelocity(OldVelocity));
-            return;
-        }
-        
-        // Check for projectiles
-        UProjectileMoveComponent ProjMove = UProjectileMoveComponent::Get(TargetActor);
-        if (IsValid(ProjMove))
-        {
-            ProjMove.ProjectileVelocity = ComputeTeleportedVelocity(ProjMove.ProjectileVelocity);
+            // Check for physics objects
+            UPrimitiveComponent PrimComp = Cast<UPrimitiveComponent>(TargetActor.GetRootComponent());
+            if (IsValid(PrimComp) && PrimComp.IsSimulatingPhysics())
+            {
+                PrimComp.SetPhysicsLinearVelocity(ComputeTeleportedVelocity(OldVelocity));
+            }
+            else
+            {
+                // Check for projectiles
+                UProjectileMoveComponent ProjMove = UProjectileMoveComponent::Get(TargetActor);
+                if (IsValid(ProjMove))
+                {
+                    ProjMove.ProjectileVelocity = ComputeTeleportedVelocity(ProjMove.ProjectileVelocity);
+                }
+            }
         }
     }
+
+
     
     private FVector ComputeTeleportedLocation(AActor TargetActor)
     {
