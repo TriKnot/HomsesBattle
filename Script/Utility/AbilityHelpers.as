@@ -18,7 +18,7 @@ namespace AbilityHelpers
 
     // Rotate the given Homse to the camera rotation
     // SnapToRotation: If true, the actor will snap to the camera rotation
-    void RotateActorToCameraRotation(const AHomseCharacterBase Homse, bool SnapToRotation = false)
+    void RotateActorToCameraRotation(AHomseCharacterBase Homse, bool SnapToRotation = false)
     {
         if (Homse == nullptr || Homse.HomseMovementComponent == nullptr)
             return;
