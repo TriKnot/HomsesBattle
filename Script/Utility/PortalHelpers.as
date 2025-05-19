@@ -1,4 +1,4 @@
-namespace PortalTransformHelpers
+namespace Portal
 {
     // Transforms a point from the source portal's local space to the destination portal's world space.
     // Applies mirroring on the X and Y axes in the source portal's local space.
@@ -83,16 +83,17 @@ namespace PortalTransformHelpers
 } 
 
 // --- Portal Struct Definitions ---
-struct FDuplicateInfo
-{
-    AActor DuplicateActor = nullptr;
-    bool bOriginalWasTeleported = false;
-    bool bInTransition = false;
-    float TransitionStartTime = 0.0f;
-}
 
 struct FProjectedPortalCorners
 {
     int Recursion = 0;
     TArray<FVector2D> ProjectedCorners;
+}
+
+enum EPortalTeleportedState
+{
+    ActiveAtThisPortal,
+    TransitioningToLinkedPortal,
+    ActiveAtLinkedPortal,
+    TransitionFinished
 }

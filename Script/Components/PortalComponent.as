@@ -16,21 +16,18 @@ class UPortalComponent : UActorComponent
     UPROPERTY(EditDefaultsOnly, Category = "Portal|Performance")
     float TrackedActorCleanupInterval = 0.5f;
 
-    UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplicate")
-    float DuplicateTransitionTime = 0.1f;
-
     UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
     float SpawnDuplicateBufferDistance = 150.0f;
     
     UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
     float RemoveDuplicateBufferDistance = 150.0f;
-    
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Clipping")
+    UMaterialInstance ClipMaterial;
+
     // --- Components References ---
     UPROPERTY(DefaultComponent, Attach = Root)
     UStaticMeshComponent PortalFrameMesh;   
-    
-    UPROPERTY(DefaultComponent, Attach = Root)
-    UBoxComponent TeleportTriggerVolume;
     
     UPROPERTY(DefaultComponent, Attach = Root)
     UBoxComponent PlayerNearbyDetectionBox;
@@ -44,86 +41,49 @@ class UPortalComponent : UActorComponent
     // --- Runtime Data ---
     private APortalActor LinkedPortal;
     private UMaterialInstanceDynamic PortalMaterialInstance;
-    private TMap<AActor, FVector> TrackedActors;
+    private TArray<UTeleportActorComponent> TrackedTeleportedActorComponents;
     private FPlane PortalPlane;
     private TArray<FVector> MeshWorldCorners;
     private TMap<int, FProjectedPortalCorners> ProjectedMeshWorldCorners;
     private bool bCameraSynced = true;
     private bool bCameraTransitionActive = false;
-    private TArray<AActor> TeleportedActors;
-    private TMap<AActor, FDuplicateInfo> DuplicatedActors;
+    TMap<AActor, FMaterialInstanceCollection> ActorToOriginalMaterials;
 
-    const TMap<AActor, FDuplicateInfo>& GetDuplicatedActors() 
-    { 
-        return DuplicatedActors; 
-    }
-
-    void RegisterDuplicate(const AActor OriginalActor, AActor DuplicateActor, bool bTeleported = false)
+    // --- Duplicate Actors Management ---
+    bool GetTeleportComponent(const AActor OriginalActor, UTeleportActorComponent& OutComponent) const
     {
-        if (IsValid(OriginalActor) && IsValid(DuplicateActor))
+        if(!IsValid(OriginalActor))
+            return false;
+
+        for (UTeleportActorComponent TeleportedActorComp : TrackedTeleportedActorComponents)
         {
-            FDuplicateInfo Info;
-            Info.DuplicateActor = DuplicateActor;
-            Info.bOriginalWasTeleported = bTeleported;
-            
-            DuplicatedActors.Add(OriginalActor, Info);
+            if (IsValid(TeleportedActorComp) && TeleportedActorComp.Owner == OriginalActor)
+            {
+                OutComponent = TeleportedActorComp;
+                return true;
+            }
         }
-    }
 
-    void UpdateDuplicateStatus(const AActor OriginalActor, bool bTeleported)
-    {
-        if (DuplicatedActors.Contains(OriginalActor))
-        {
-            DuplicatedActors[OriginalActor].bOriginalWasTeleported = bTeleported;
-        }
-    }
-
-    void RemoveDuplicate(const AActor OriginalActor)
-    {
-        DuplicatedActors.Remove(OriginalActor);
-    }
-
-    void EmptyDuplicatedActors() 
-    { 
-        DuplicatedActors.Empty(); 
-    }
-
-    AActor GetDuplicateActor(const AActor OriginalActor)
-    {
-        if (DuplicatedActors.Contains(OriginalActor))
-        {
-            return DuplicatedActors[OriginalActor].DuplicateActor;
-        }
-        return nullptr;
-    }
-
-    bool IsActorTeleported(const AActor OriginalActor)
-    {
-        if (DuplicatedActors.Contains(OriginalActor))
-        {
-            return DuplicatedActors[OriginalActor].bOriginalWasTeleported;
-        }
         return false;
     }
 
-    void TransferDuplicateToLinkedPortal(const AActor OriginalActor)
+    bool IsTrackingActor(const AActor OriginalActor) const
     {
-        if (!IsValid(LinkedPortal) || !DuplicatedActors.Contains(OriginalActor))
-            return;
-                
-        FDuplicateInfo& DuplicateInfo = DuplicatedActors[OriginalActor];
-        
-        // Mark as in transition state and store current time
-        DuplicateInfo.bInTransition = true;
-        DuplicateInfo.TransitionStartTime = System::GetGameTimeInSeconds();
-        
-        // Update teleported status
-        DuplicateInfo.bOriginalWasTeleported = true;
-        
-        // Register the duplicate with the linked portal, mark that it's still in transition
-        LinkedPortal.PortalComponent.RegisterDuplicate(OriginalActor, DuplicateInfo.DuplicateActor, true);
+        if(!IsValid(OriginalActor))
+            return false;
+
+        for (UTeleportActorComponent TeleportedActorComp : TrackedTeleportedActorComponents)
+        {
+            if (IsValid(TeleportedActorComp) && TeleportedActorComp.Owner == OriginalActor)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
+    // --- Linked Portal Management ---
 
     void SetLinkedPortal(APortalActor OtherPortal)
     {
@@ -140,43 +100,44 @@ class UPortalComponent : UActorComponent
     {
         return LinkedPortal;
     }
-    
-    void SetPortalMaterialInstance(UMaterialInstanceDynamic MaterialInstance)
+
+    // --- Actor Tracking ---
+
+    void StartTracking(UTeleportActorComponent TrackedComponent)
     {
-        PortalMaterialInstance = MaterialInstance;
-    }
-    
-    UMaterialInstanceDynamic GetPortalMaterialInstance() const
-    {
-        return PortalMaterialInstance;
+        if (IsValid(TrackedComponent))
+        {
+            TrackedTeleportedActorComponents.AddUnique(TrackedComponent);
+        }
     }
 
-    void SetPortalPlane(const FPlane& NewPortalPlane)
-    {
-        PortalPlane = NewPortalPlane;
-    }
-    
-    bool IsBehindPortal(const FVector& Point) const
-    {
-        return PortalPlane.PlaneDot(Point) < 0.0f;
-    }
-
-    void TrackActor(AActor Actor)
+    void StartTracking(AActor Actor)
     {
         if (IsValid(Actor))
-            TrackedActors.Add(Actor, Actor.GetActorLocation());
+        {
+            UTeleportActorComponent TeleportedActorComp = UTeleportActorComponent::GetOrCreate(Actor);
+            StartTracking(TeleportedActorComp);
+        }
     }
 
-    void StopTrackingActor(AActor Actor)
+    void StopTracking(UTeleportActorComponent TrackedComponent)
+    {
+        if (IsValid(TrackedComponent))
+        {
+            TrackedTeleportedActorComponents.Remove(TrackedComponent);
+        }
+    }
+
+    void StopTracking(AActor Actor)
     {
         if (IsValid(Actor))
-            TrackedActors.Remove(Actor);
+        {
+            UTeleportActorComponent TeleportedActorComp = UTeleportActorComponent::GetOrCreate(Actor);
+            StopTracking(TeleportedActorComp);
+        }
     }
 
-    TMap<AActor, FVector>& GetTrackedActors()
-    {
-        return TrackedActors;
-    }
+    // --- Camera Sync & Transition ---
 
     void SetCameraSynced(bool bInCameraSynced)
     {
@@ -200,49 +161,52 @@ class UPortalComponent : UActorComponent
         return bCameraTransitionActive;
     }
 
-    void SetMeshWorldCorners(const TArray<FVector>& Corners)
+    // --- Portal Plane ---
+    void SetPortalPlane(const FPlane& NewPortalPlane) 
+    { 
+        PortalPlane = NewPortalPlane; 
+    }
+
+    FPlane GetPortalPlane() const 
+    { 
+        return PortalPlane; 
+    }
+
+    bool IsBehindPortal(const FVector& Point) const 
+    { 
+        return PortalPlane.PlaneDot(Point) < 0.0f; 
+    }
+
+    TArray<UTeleportActorComponent>& GetTrackedTeleportComponents() 
+    { 
+        return TrackedTeleportedActorComponents;
+    }
+
+    // --- Mesh Corners (for rendering) ---
+    void SetMeshWorldCorners(const TArray<FVector>& Corners) 
+    { 
+        MeshWorldCorners = Corners; 
+    }
+
+    const TArray<FVector>& GetMeshWorldCorners() const 
+    { 
+        return MeshWorldCorners; 
+    }
+
+    TMap<int, FProjectedPortalCorners>& GetProjectedMeshWorldCorners() 
+    { 
+        return ProjectedMeshWorldCorners; 
+    } 
+
+    // --- Material Instance ---
+    void SetPortalMaterialInstance(UMaterialInstanceDynamic MaterialInstance)
     {
-        MeshWorldCorners = Corners;
+        PortalMaterialInstance = MaterialInstance;
     }
     
-    const TArray<FVector>& GetMeshWorldCorners()
+    UMaterialInstanceDynamic GetPortalMaterialInstance() const
     {
-        return MeshWorldCorners;
-    }
-    
-    TMap<int, FProjectedPortalCorners>& GetProjectedMeshWorldCorners()
-    {
-        return ProjectedMeshWorldCorners;
-    }
-
-    TArray<AActor> GetTeleportedActors() const
-    {
-        return TeleportedActors;
-    }
-
-    void AddTeleportedActor(AActor Actor)
-    {
-        if (IsValid(Actor))
-            TeleportedActors.AddUnique(Actor);
-    }
-
-    void RemoveTeleportedActor(AActor Actor)
-    {
-        if (IsValid(Actor))
-            TeleportedActors.Remove(Actor);
-    }
-    
-    UFUNCTION()
-    void OnActorNearbyOverlapBegin(UPrimitiveComponent OverlappedComponent, AActor OtherActor, UPrimitiveComponent OtherComp, int OtherBodyIndex, bool bFromSweep, const FHitResult&in SweepResult)
-    {
-        if (IsValid(OtherActor))
-            TrackActor(OtherActor);
-    }
-
-    UFUNCTION()
-    void OnActorNearbyOverlapEnd(UPrimitiveComponent OverlappedComponent, AActor OtherActor, UPrimitiveComponent OtherComp, int OtherBodyIndex)
-    {
-        if (IsValid(OtherActor))
-            StopTrackingActor(OtherActor);
+        return PortalMaterialInstance;
     }
 }
+

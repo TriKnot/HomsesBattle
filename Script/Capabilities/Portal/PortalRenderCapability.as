@@ -231,10 +231,10 @@ class UPortalRenderCapability : UCapability
         FTransform LinkedTransform = bCameraSynced ? PortalComp.GetLinkedPortal().GetActorTransform() : PortalOwner.GetActorTransform();
 
         FVector CameraToPortalLocalPos = FromTransform.InverseTransformPosition(PlayerCamera.GetWorldLocation());
-        FVector TargetLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(CameraToPortalLocalPos, LinkedTransform);
+        FVector TargetLocation = Portal::TransformLocalPointToWorldMirrored(CameraToPortalLocalPos, LinkedTransform);
         
         FQuat CameraToPortalLocalRot = FromTransform.GetRotation().Inverse() * PlayerCamera.GetWorldRotation().Quaternion();
-        FRotator TargetRotation = PortalTransformHelpers::TransformLocalRotationToWorldFlipped(CameraToPortalLocalRot, LinkedTransform.GetRotation(), LinkedTransform.Rotator().UpVector);
+        FRotator TargetRotation = Portal::TransformLocalRotationToWorldFlipped(CameraToPortalLocalRot, LinkedTransform.GetRotation(), LinkedTransform.Rotator().UpVector);
 
         PortalComp.PortalPlayerCamera.SetWorldLocationAndRotation(TargetLocation, TargetRotation);
     }
@@ -282,18 +282,18 @@ class UPortalRenderCapability : UCapability
             }
 
             FVector LocalPos = ThisPortalTransform.InverseTransformPosition(PlayerCameraManager.GetCameraLocation());
-            CurrentCamLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(LocalPos, TargetLinkedPortalTransform);
+            CurrentCamLocation = Portal::TransformLocalPointToWorldMirrored(LocalPos, TargetLinkedPortalTransform);
             
             FQuat LocalRot = ThisPortalTransform.GetRotation().Inverse() * PlayerCameraManager.GetCameraRotation().Quaternion();
-            CurrentCamRotation = PortalTransformHelpers::TransformLocalRotationToWorldFlipped(LocalRot, TargetLinkedPortalTransform.GetRotation(), TargetLinkedPortalTransform.Rotator().UpVector);
+            CurrentCamRotation = Portal::TransformLocalRotationToWorldFlipped(LocalRot, TargetLinkedPortalTransform.GetRotation(), TargetLinkedPortalTransform.Rotator().UpVector);
         }
         else 
         {            
             FVector LocalPos = ThisPortalTransform.InverseTransformPosition(PreviousIterationCamLocation);
-            CurrentCamLocation = PortalTransformHelpers::TransformLocalPointToWorldMirrored(LocalPos, TargetLinkedPortalTransform);
+            CurrentCamLocation = Portal::TransformLocalPointToWorldMirrored(LocalPos, TargetLinkedPortalTransform);
             
             FQuat LocalRot = ThisPortalTransform.GetRotation().Inverse() * PreviousIterationCamRotation.Quaternion();
-            CurrentCamRotation = PortalTransformHelpers::TransformLocalRotationToWorldFlipped(LocalRot, TargetLinkedPortalTransform.GetRotation(), TargetLinkedPortalTransform.Rotator().UpVector);
+            CurrentCamRotation = Portal::TransformLocalRotationToWorldFlipped(LocalRot, TargetLinkedPortalTransform.GetRotation(), TargetLinkedPortalTransform.Rotator().UpVector);
         }
 
         // Set the camera transform for the final capture and for checking visibility
