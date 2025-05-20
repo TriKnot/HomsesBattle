@@ -155,13 +155,15 @@ class UPortalDuplicateActorCapability : UCapability
         // Calculate the transformed position for the duplicate
         FVector NewLocation = ComputeTransformedLocation(OriginalActor.GetActorLocation());
         FRotator NewRotation = ComputeTransformedRotation(OriginalActor.GetActorRotation());
+
+        System::DrawDebugBox(NewLocation, FVector(50, 50, 50), FLinearColor::Red, NewRotation, 50.0f);
         
         // Spawn the duplicate actor as an empty container       
         AActor DuplicateActor = SpawnActor(AActor::StaticClass(), NewLocation, NewRotation, FName(f"{OriginalActor.GetName()}_Duplicate"));
         
         if (IsValid(DuplicateActor))
         {           
-            USceneComponent RootComponent = Cast<USceneComponent>(NewObject(DuplicateActor, OriginalActor.GetRootComponent().GetClass(), FName(f"{OriginalActor.GetName()}_RootComponent")));
+            USceneComponent RootComponent = Cast<USceneComponent>(NewObject(DuplicateActor, USceneComponent::StaticClass(), FName(f"{OriginalActor.GetName()}_RootComponent")));
             DuplicateActor.RootComponent = RootComponent;
             
             // Create components for the duplicate based on the original actor
@@ -196,9 +198,14 @@ class UPortalDuplicateActorCapability : UCapability
             // Set the skeletal mesh asset
             PoseableMesh.SetSkinnedAssetAndUpdate(OriginalMesh.SkinnedAsset, false);
             
-            // Set relative transform to match the original
-            PoseableMesh.SetRelativeLocationAndRotation(OriginalMesh.GetRelativeLocation(), OriginalMesh.GetRelativeRotation());
-            PoseableMesh.SetRelativeScale3D(OriginalMesh.GetRelativeScale3D());
+            // Set relative transform to match the original if it's not the root
+            FTransform RelativeTransform;
+            
+            if(OriginalMesh != OriginalActor.RootComponent)
+            {
+                RelativeTransform = OriginalMesh.GetRelativeTransform();
+            }
+            PoseableMesh.SetRelativeTransform(RelativeTransform);
             
             // Copy materials
             int32 MaterialCount = OriginalMesh.GetNumMaterials();
@@ -235,15 +242,21 @@ class UPortalDuplicateActorCapability : UCapability
             // Set the static mesh asset
             DuplicateMesh.SetStaticMesh(OriginalMesh.StaticMesh);
             
-            // Set relative transform to match the original
-            DuplicateMesh.SetRelativeLocationAndRotation(OriginalMesh.GetRelativeLocation(), OriginalMesh.GetRelativeRotation());
-            DuplicateMesh.SetRelativeScale3D(OriginalMesh.GetRelativeScale3D());
+            // Set relative transform to match the original if it's not the root
+            FTransform RelativeTransform;
+            
+            if(OriginalMesh != OriginalActor.RootComponent)
+            {
+                RelativeTransform = OriginalMesh.GetRelativeTransform();
+            }
+            DuplicateMesh.SetRelativeTransform(RelativeTransform);
+
             
             // Copy materials
             int32 MaterialCount = OriginalMesh.GetNumMaterials();
             for (int32 i = 0; i < MaterialCount; i++)
             {
-                UMaterialInterface Material = OriginalMesh.GetMaterial(i);
+                UMaterialInterface Material = Material::CreateDynamicMaterialInstance(OriginalMesh.GetMaterial(i));
                 if (IsValid(Material))
                 {
                     DuplicateMesh.SetMaterial(i, Material);
