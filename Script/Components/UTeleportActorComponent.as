@@ -8,7 +8,9 @@ class UTeleportActorComponent : UActorComponent
     private FVector LastKnownLocation;
     TMap<UMeshComponent, FMaterialInstanceCollection> OriginalMaterials;
     bool bSetUpNewPortal;
-
+    TMap<UActorComponent, UNiagaraComponent> IntersectionNiagaraComponents;
+    TMap<UPrimitiveComponent, FPrimitiveComponentSet> CollisionIgnoredComponents;
+    bool bCameraSynced;
 
     void NotifyTeleported(APortalActor PortalActor, const FPlane& InPortalPlane)
     {
@@ -73,5 +75,34 @@ class UTeleportActorComponent : UActorComponent
     const FVector& GetLastKnownLocation() const
     {
         return LastKnownLocation;
+    }
+}
+
+
+struct FPrimitiveComponentSet
+{
+    TSet<UPrimitiveComponent> Components;
+
+    void Add(UPrimitiveComponent Component)
+    {
+        if (IsValid(Component))
+        {
+            Components.Add(Component);
+        }
+    }
+
+    void Remove(UPrimitiveComponent Component)
+    {
+        Components.Remove(Component);
+    }
+
+    bool Contains(UPrimitiveComponent Component) const
+    {
+        return Components.Contains(Component);
+    }
+
+    bool IsEmpty() const
+    {
+        return Components.IsEmpty();
     }
 }

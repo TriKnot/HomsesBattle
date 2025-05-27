@@ -18,12 +18,48 @@ class UPortalComponent : UActorComponent
 
     UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
     float SpawnDuplicateBufferDistance = 150.0f;
-    
+
     UPROPERTY(EditDefaultsOnly, Category = "Portal|Duplication")
     float RemoveDuplicateBufferDistance = 150.0f;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual")
+    FLinearColor BaseColor = FLinearColor(1.00, 0.00, 0.95, 0.25);
 
-    UPROPERTY(EditDefaultsOnly, Category = "Portal|Clipping")
-    UMaterialInstance ClipMaterial;
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual")
+    FLinearColor HighlightColor = FLinearColor(1.00, 0.00, 0.97, 0.64);
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Clip|Material")
+    float ClipOffset = 0.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    UNiagaraSystem IntersectionNiagaraSystem_SkeletalMesh;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    UNiagaraSystem OffsetIntersectionNiagaraSystem_SkeletalMesh;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    UNiagaraSystem IntersectionNiagaraSystem_StaticMesh;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    float ClipIntersetionThickness = 1.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    float ClipIntersectionOffset = 0.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    FName OriginParamName = n"PortalPlaneOrigin";
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    FName NormalParamName = n"PortalPlaneNormal";
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    FName IntersectionThicknessParamName = n"IntersectionThickness";
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    FName SkeletalMeshSampleParamName = n"SkeletalMeshSample";
+
+    UPROPERTY(EditDefaultsOnly, Category = "Portal|Visual|Niagara")
+    FName StaticMeshSampleParamName = n"StaticMeshSample";
 
     // --- Components References ---
     UPROPERTY(DefaultComponent, Attach = Root)
@@ -48,6 +84,7 @@ class UPortalComponent : UActorComponent
     private bool bCameraSynced = true;
     private bool bCameraTransitionActive = false;
     TMap<AActor, FMaterialInstanceCollection> ActorToOriginalMaterials;
+    TArray<AActor> ActorsBehindPortal;  
 
     // --- Duplicate Actors Management ---
     bool GetTeleportComponent(const AActor OriginalActor, UTeleportActorComponent& OutComponent) const

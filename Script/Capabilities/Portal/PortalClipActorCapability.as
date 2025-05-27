@@ -41,6 +41,7 @@ class UPortalClipActorCapability : UCapability
                 continue;
 
             ResetOriginalMaterials(Actor, TeleportedActorComp);
+            DisableNiagaraSystems(Actor);
             TeleportedActorComp.bSetUpNewPortal = false;
         }
         ClippedActors.Empty();
@@ -70,6 +71,7 @@ class UPortalClipActorCapability : UCapability
                 continue;
 
             ApplyOrUpdateMaterial(OriginalActor, DuplicateActor);
+            AddIntersectionNiagaraSystem(OriginalActor, DuplicateActor);
             TeleportedActorComp.bSetUpNewPortal = false;
             ClippedActors.Add(OriginalActor);
         }
@@ -88,7 +90,161 @@ class UPortalClipActorCapability : UCapability
                 continue;
 
             ResetOriginalMaterials(Actor, TeleportedActorComp);
+            DisableNiagaraSystems(Actor);
             ClippedActors.RemoveAt(i);
+        }
+    }
+
+    void AddIntersectionNiagaraSystem(AActor Actor, AActor DuplicateActor)
+    {
+        if(!IsValid(Actor) || !IsValid(PortalComp) || !IsValid(PortalComp.IntersectionNiagaraSystem_SkeletalMesh))
+            return;
+
+        UTeleportActorComponent TeleportedActorComp = UTeleportActorComponent::GetOrCreate(Actor);
+
+        TArray<USkeletalMeshComponent> SkeletalMeshComponents;
+        Actor.GetComponentsByClass(USkeletalMeshComponent::StaticClass(), SkeletalMeshComponents);
+        TArray<USkinnedMeshComponent> DuplicateSkeletalMeshComponents;
+        DuplicateActor.GetComponentsByClass(USkinnedMeshComponent::StaticClass(), DuplicateSkeletalMeshComponents);
+
+        for (USkeletalMeshComponent SkeletalMeshComponent : SkeletalMeshComponents)
+        {
+            if(!IsValid(SkeletalMeshComponent))
+                continue;
+
+            UNiagaraComponent NiagaraComponent; 
+
+            if(!TeleportedActorComp.IntersectionNiagaraComponents.Find(SkeletalMeshComponent, NiagaraComponent))
+            {
+                if(!IsValid(NiagaraComponent))
+                {
+                    NiagaraComponent = UNiagaraComponent::Create(Actor);
+                    TeleportedActorComp.IntersectionNiagaraComponents.Add(SkeletalMeshComponent, NiagaraComponent);
+                    NiagaraComponent.SetAsset(PortalComp.IntersectionNiagaraSystem_SkeletalMesh);
+                    Niagara::OverrideSystemUserVariableSkeletalMeshComponent(NiagaraComponent, FString(PortalComp.SkeletalMeshSampleParamName), SkeletalMeshComponent);
+                    NiagaraComponent.SetColorParameter(n"Color", PortalComp.HighlightColor);
+                }
+            }
+
+            NiagaraComponent.SetVectorParameter(PortalComp.OriginParamName, PortalComp.GetPortalPlane().GetOrigin() + PortalComp.GetPortalPlane().GetNormal() * PortalComp.ClipIntersectionOffset);
+            NiagaraComponent.SetVectorParameter(PortalComp.NormalParamName, PortalComp.GetPortalPlane().GetNormal());
+            NiagaraComponent.SetFloatParameter(PortalComp.IntersectionThicknessParamName, PortalComp.ClipIntersetionThickness);
+            NiagaraComponent.Activate();
+
+            UNiagaraComponent DuplicateNiagaraComponent = UNiagaraComponent::Create(DuplicateActor);
+            DuplicateNiagaraComponent.SetAsset(PortalComp.OffsetIntersectionNiagaraSystem_SkeletalMesh);
+            Niagara::OverrideSystemUserVariableSkeletalMeshComponent(DuplicateNiagaraComponent, FString(PortalComp.SkeletalMeshSampleParamName), SkeletalMeshComponent);
+
+            DuplicateNiagaraComponent.SetVectorParameter(PortalComp.OriginParamName, PortalComp.GetPortalPlane().GetOrigin() + -PortalComp.GetPortalPlane().GetNormal() * PortalComp.ClipIntersectionOffset);
+            DuplicateNiagaraComponent.SetVectorParameter(PortalComp.NormalParamName, -PortalComp.GetPortalPlane().GetNormal());
+            DuplicateNiagaraComponent.SetFloatParameter(PortalComp.IntersectionThicknessParamName, PortalComp.ClipIntersetionThickness);
+
+            FVector PortalALocation = Owner.GetActorLocation();
+            FVector PortalBLocation = PortalComp.GetLinkedPortal().GetActorLocation();
+            FQuat PortalARotation = Owner.GetActorRotation().Quaternion();
+            FQuat PortalBRotation = PortalComp.GetLinkedPortal().GetActorRotation().Quaternion();
+            DuplicateNiagaraComponent.SetVectorParameter(n"PortalALocation", PortalALocation);
+            DuplicateNiagaraComponent.SetVectorParameter(n"PortalBLocation", PortalBLocation);
+            DuplicateNiagaraComponent.SetVariableQuat(n"PortalARotation", PortalARotation);
+            DuplicateNiagaraComponent.SetVariableQuat(n"PortalBRotation", PortalBRotation);
+            DuplicateNiagaraComponent.SetActorParameter(n"PortalA", Owner);
+            DuplicateNiagaraComponent.SetColorParameter(n"Color", PortalComp.HighlightColor);
+            DuplicateNiagaraComponent.Activate();
+        }
+
+        for (USkinnedMeshComponent SkinnedMeshComponent : DuplicateSkeletalMeshComponents)
+        {
+            if(!IsValid(SkinnedMeshComponent))
+                continue;
+
+            UNiagaraComponent NiagaraComponent; 
+
+            if(!TeleportedActorComp.IntersectionNiagaraComponents.Find(SkinnedMeshComponent, NiagaraComponent))
+            {
+                if(!IsValid(NiagaraComponent))
+                {
+                    NiagaraComponent = UNiagaraComponent::Create(DuplicateActor);
+                    NiagaraComponent.SetAsset(PortalComp.IntersectionNiagaraSystem_SkeletalMesh);
+                    NiagaraComponent.SetVariableObject(PortalComp.SkeletalMeshSampleParamName, SkinnedMeshComponent.SkinnedAsset);
+                    NiagaraComponent.SetColorParameter(n"Color", PortalComp.HighlightColor);
+                }
+            }
+
+            NiagaraComponent.SetVectorParameter(PortalComp.OriginParamName, PortalComp.GetPortalPlane().GetOrigin() + PortalComp.GetPortalPlane().GetNormal() * PortalComp.ClipIntersectionOffset);
+            NiagaraComponent.SetVectorParameter(PortalComp.NormalParamName, PortalComp.GetPortalPlane().GetNormal());
+            NiagaraComponent.SetFloatParameter(PortalComp.IntersectionThicknessParamName, PortalComp.ClipIntersetionThickness);
+            NiagaraComponent.Activate();
+        }
+
+        TArray<UStaticMeshComponent> Components;
+        Actor.GetComponentsByClass(UStaticMeshComponent::StaticClass(), Components);
+        TArray<UStaticMeshComponent> DuplicateComponents;
+        DuplicateActor.GetComponentsByClass(UStaticMeshComponent::StaticClass(), DuplicateComponents);
+
+        for (UStaticMeshComponent MeshComponent : Components)
+        {
+            if(!IsValid(MeshComponent))
+                continue;
+
+            UNiagaraComponent NiagaraComponent;
+            if(!TeleportedActorComp.IntersectionNiagaraComponents.Find(MeshComponent, NiagaraComponent))
+            {
+                if(!IsValid(NiagaraComponent))
+                {
+                    NiagaraComponent = UNiagaraComponent::Create(Actor);
+                    TeleportedActorComp.IntersectionNiagaraComponents.Add(MeshComponent, NiagaraComponent);
+                    NiagaraComponent.SetVariableStaticMesh(PortalComp.StaticMeshSampleParamName, MeshComponent.StaticMesh);
+                    NiagaraComponent.SetAsset(PortalComp.IntersectionNiagaraSystem_StaticMesh);
+                    NiagaraComponent.SetColorParameter(n"Color", PortalComp.HighlightColor);
+                }
+            }
+
+            NiagaraComponent.SetVectorParameter(PortalComp.OriginParamName, PortalComp.GetPortalPlane().GetOrigin() + PortalComp.GetPortalPlane().GetNormal() * PortalComp.ClipIntersectionOffset);
+            NiagaraComponent.SetVectorParameter(PortalComp.NormalParamName, PortalComp.GetPortalPlane().GetNormal());
+            NiagaraComponent.SetFloatParameter(PortalComp.IntersectionThicknessParamName, PortalComp.ClipIntersetionThickness);
+            NiagaraComponent.SetColorParameter(n"Color", PortalComp.HighlightColor);
+            NiagaraComponent.Activate();
+
+        }
+
+        for (UStaticMeshComponent MeshComponent : DuplicateComponents)
+        {
+            if(!IsValid(MeshComponent))
+                continue;
+
+            UNiagaraComponent NiagaraComponent;
+
+            if(!TeleportedActorComp.IntersectionNiagaraComponents.Find(MeshComponent, NiagaraComponent))
+            {
+                if(!IsValid(NiagaraComponent))
+                {
+                    NiagaraComponent = UNiagaraComponent::Create(DuplicateActor);
+                    NiagaraComponent.SetVariableStaticMesh(PortalComp.StaticMeshSampleParamName, MeshComponent.StaticMesh);
+                    NiagaraComponent.SetAsset(PortalComp.IntersectionNiagaraSystem_StaticMesh);
+                }
+            }
+
+            NiagaraComponent.SetVectorParameter(PortalComp.OriginParamName, PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetOrigin() + PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetNormal() * PortalComp.ClipIntersectionOffset);
+            NiagaraComponent.SetVectorParameter(PortalComp.NormalParamName, PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetNormal());
+            NiagaraComponent.SetFloatParameter(PortalComp.IntersectionThicknessParamName, PortalComp.ClipIntersetionThickness);
+            NiagaraComponent.Activate();
+        }
+
+        
+    }
+
+    void DisableNiagaraSystems(AActor Actor)
+    {
+        if(!IsValid(Actor))
+            return;
+
+        UTeleportActorComponent TeleportedActorComp = UTeleportActorComponent::GetOrCreate(Actor);
+        for(auto& Pair : TeleportedActorComp.IntersectionNiagaraComponents)
+        {
+            if(!IsValid(Pair.Value))
+                continue;
+
+            Pair.Value.Deactivate();
         }
     }
 
@@ -139,9 +295,11 @@ class UPortalClipActorCapability : UCapability
                 // Set the parameters for the material instance
                 if(IsValid(MaterialInstance))
                 {
+                    FLinearColor Origin = FLinearColor((PortalComp.GetPortalPlane().GetOrigin() + PortalComp.GetPortalPlane().GetNormal() * -PortalComp.ClipOffset));
+                    FLinearColor Normal = FLinearColor(PortalComp.GetPortalPlane().GetNormal());
                     MaterialInstance.SetScalarParameterValue(ClipParamName, 1.0f);
-                    MaterialInstance.SetVectorParameterValue(OriginParamName, FLinearColor(PortalComp.GetPortalPlane().GetOrigin()));
-                    MaterialInstance.SetVectorParameterValue(NormalParamName, FLinearColor(PortalComp.GetPortalPlane().GetNormal()));
+                    MaterialInstance.SetVectorParameterValue(OriginParamName, Origin);
+                    MaterialInstance.SetVectorParameterValue(NormalParamName, Normal);
 
                     // Set the material instance to the component
                     Component.SetMaterial(j, MaterialInstance);
@@ -152,9 +310,11 @@ class UPortalClipActorCapability : UCapability
             
                 if(IsValid(DuplicateMaterialInstance))
                 {
+                    FLinearColor Origin = FLinearColor((PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetOrigin() + PortalComp.GetPortalPlane().GetNormal() * PortalComp.ClipOffset));
+                    FLinearColor Normal = FLinearColor(PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetNormal());
                     DuplicateMaterialInstance.SetScalarParameterValue(ClipParamName, 1.0f);
-                    DuplicateMaterialInstance.SetVectorParameterValue(OriginParamName, FLinearColor(PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetOrigin()));
-                    DuplicateMaterialInstance.SetVectorParameterValue(NormalParamName, FLinearColor(PortalComp.GetLinkedPortal().PortalComponent.GetPortalPlane().GetNormal()));
+                    DuplicateMaterialInstance.SetVectorParameterValue(OriginParamName, Origin);
+                    DuplicateMaterialInstance.SetVectorParameterValue(NormalParamName, Normal);
 
                     // Set the material instance to the component
                     DuplicateComponents[i].SetMaterial(j, DuplicateMaterialInstance);
