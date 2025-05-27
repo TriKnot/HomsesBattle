@@ -46,6 +46,4 @@ class UCapability : UObject
     UFUNCTION(BlueprintEvent)
     void TickActive(float DeltaTime) {}
 
-    UFUNCTION(BlueprintEvent)
-    void ResetFrameTransient() {}
 }
