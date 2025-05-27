@@ -52,7 +52,15 @@ class UPlayerCameraComponent : UActorComponent
     {
         return SpringArmComp.GetRelativeLocation() + CameraComp.GetRelativeLocation();
     }
-};
+    
+    void SetCameraCollisionEnabled(bool bEnabled)
+    {
+        if (!IsValid(SpringArmComp))
+            return;
+        
+        SpringArmComp.bDoCollisionTest = bEnabled;
+    }
+}
 
 struct FCameraOffsetTarget 
 {

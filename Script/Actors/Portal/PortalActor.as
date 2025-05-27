@@ -13,6 +13,7 @@ class APortalActor : AActor
     default CapabilityComponent.AddCapability(UPortalTeleporterCapability::StaticClass());
     default CapabilityComponent.AddCapability(UPortalDuplicateActorCapability::StaticClass());
     default CapabilityComponent.AddCapability(UPortalClipActorCapability::StaticClass());
+    default CapabilityComponent.AddCapability(UPortalCollisionHandlerCapability::StaticClass());
     
     default CapabilityComponent.SetTickGroup(ETickingGroup::TG_LastDemotable); // TODO: Change this once we have a central system for ticking capabilities
 
